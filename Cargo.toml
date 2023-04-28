@@ -117,4 +117,6 @@ pallet-evm-precompile-simple = { version = "2.0.0-dev", git = "https://github.co
 pallet-evm-test-vector-support = { version = "1.0.0-dev", git = "https://github.com/paritytech/frontier.git", rev = "0b04dd3c" }
 pallet-hotfix-sufficients = { version = "1.0.0", git = "https://github.com/paritytech/frontier.git", rev = "0b04dd3c", default-features = false }
 # Frontier Template
-frontier-template-runtime = { git = "https://github.com/paritytech/frontier.git", rev = "0b04dd3c", default-features = false }
+qchain-template-runtime = { path = "runtime", default-features = false  }
+
+

@@ -60,7 +60,10 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 
 mod precompiles;
+mod const_evm_transaction;
+
 use precompiles::FrontierPrecompiles;
+use crate::const_evm_transaction::EVMConstFeeAdapter;
 
 /// Type of block number.
 pub type BlockNumber = u32;
@@ -361,7 +364,7 @@ impl pallet_evm::Config for Runtime {
 	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
-	type OnChargeTransaction = ();
+	type OnChargeTransaction = EVMConstFeeAdapter<Balances, ()>;
 	type OnCreate = ();
 	type FindAuthor = FindAuthorTruncated<Aura>;
 }

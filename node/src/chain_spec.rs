@@ -9,7 +9,7 @@ use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_state_machine::BasicExternalities;
 // Frontier
-use frontier_template_runtime::{
+use qchain_template_runtime::{
 	AccountId, EnableManualSeal, GenesisConfig, Signature, WASM_BINARY,
 };
 
@@ -166,7 +166,7 @@ fn testnet_genesis(
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	chain_id: u64,
 ) -> GenesisConfig {
-	use frontier_template_runtime::{
+	use qchain_template_runtime::{
 		AuraConfig, BalancesConfig, EVMChainIdConfig, EVMConfig, GrandpaConfig, SudoConfig,
 		SystemConfig,
 	};

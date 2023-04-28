@@ -1,5 +1,5 @@
 [package]
-name = "frontier-template-node"
+name = "qchain-template-node"
 version = "0.0.0"
 license = "Unlicense"
 build = "build.rs"
@@ -74,19 +74,19 @@ fc-storage = { workspace = true }
 fp-dynamic-fee = { workspace = true, features = ["default"] }
 fp-evm = { workspace = true, features = ["default"] }
 fp-rpc = { workspace = true, features = ["default"] }
-frontier-template-runtime = { workspace = true, features = ["default"] }
+qchain-template-runtime = { workspace = true, features = ["default"] }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
 
 [features]
 default = ["with-rocksdb-weights"]
-with-rocksdb-weights = ["frontier-template-runtime/with-rocksdb-weights"]
-with-paritydb-weights = ["frontier-template-runtime/with-paritydb-weights"]
+with-rocksdb-weights = ["qchain-template-runtime/with-rocksdb-weights"]
+with-paritydb-weights = ["qchain-template-runtime/with-paritydb-weights"]
 rpc-binary-search-estimate = ["fc-rpc/rpc-binary-search-estimate"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
-	"frontier-template-runtime/runtime-benchmarks",
+	"qchain-template-runtime/runtime-benchmarks",
 ]
