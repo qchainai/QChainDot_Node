@@ -1,0 +1,25 @@
+{
+  "name": "ts-tests",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "fmt-check": "prettier ./tests --check",
+    "fmt": "prettier ./tests --write",
+    "build": "truffle compile",
+    "test": "mocha -r ts-node/register 'tests/**/*.ts'",
+    "const-fee": "mocha -r ts-node/register 'tests/test-const-fee.ts'"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ethers": "^5.4.6",
+    "ts-node": "^8.10.2",
+    "typescript": "^3.9.6",
+    "web3": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/chai-as-promised": "^7.1.5",
+    "prettier": "^2.6.2"
+  }
+}
