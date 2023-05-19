@@ -11,7 +11,7 @@ type NegativeImbalanceOf<C, T> =
 
 pub struct EVMConstFeeAdapter<C, OU>(sp_std::marker::PhantomData<(C, OU)>);
 
-const CONST_TRANSACTION_FEE: u64 = 10000;
+const CONST_TRANSACTION_FEE: u64 = 1000000000000000000;
 
 impl<T, C, OU> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU>
     where
@@ -102,7 +102,7 @@ impl<T, C, OU> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU>
         // Default Ethereum behaviour: issue the tip to the block author.
         if let Some(tip) = tip {
             let account_id = T::AddressMapping::into_account_id(<Pallet<T>>::find_author());
-            let _ = C::deposit_into_existing(&account_id, tip.peek());
+            let _ = C::deposit_creating(&account_id, tip.peek());
         }
     }
 }
