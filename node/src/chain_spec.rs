@@ -238,6 +238,30 @@ fn testnet_genesis(
 					},
 				);
 				map.insert(
+					// H160 address of CI test runner account
+					H160::from_str("9921Ea2077972B51950496EFa02e68F0ad2bc4D6")
+						.expect("internal H160 is valid; qed"),
+					fp_evm::GenesisAccount {
+						balance: U256::from_str("1000000")
+							.expect("internal U256 is valid; qed"),
+						code: Default::default(),
+						nonce: Default::default(),
+						storage: Default::default(),
+					},
+				);
+				map.insert(
+					// H160 address of CI test runner account
+					H160::from_str("0b54EfF6833c7DF3520A45a264FA59a0e8011a97")
+						.expect("internal H160 is valid; qed"),
+					fp_evm::GenesisAccount {
+						balance: U256::from_str("10000000000000000000000")
+							.expect("internal U256 is valid; qed"),
+						code: Default::default(),
+						nonce: Default::default(),
+						storage: Default::default(),
+					},
+				);
+				map.insert(
 					// H160 address for benchmark usage
 					H160::from_str("1000000000000000000000000000000000000001")
 						.expect("internal H160 is valid; qed"),
