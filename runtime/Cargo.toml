@@ -1,6 +1,6 @@
 [package]
 name = "qchain-template-runtime"
-version = "0.0.0"
+version = "0.0.1"
 license = "Unlicense"
 description = "A fresh FRAME-based Substrate runtime, ready for hacking."
 publish = false

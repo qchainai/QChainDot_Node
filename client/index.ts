@@ -12,6 +12,7 @@ export const RPC_PORT = 8545;
 export const WS_PORT = 9944;
 
 export const URL = "http://0.0.0.0";
+// export const URL = "http://185.183.34.79";
 
 export const DISPLAY_LOG = process.env.FRONTIER_LOG || false;
 export const FRONTIER_LOG = process.env.FRONTIER_LOG || "info";
@@ -27,6 +28,7 @@ export const VALIDATOR_ACCOUNT = "0x15fdd31C61141abd04A99FD6822c8558854ccDe3";
 export const SECOND_META_ACCOUNT = "0xd19aC91E692CbcF1aEF633c95e8Bd06621D41f02";
 export const METAMASK_PRIVATE = "0x0822f887352a5c50f11139ef52ce7b8f261c12c28f5ecdbc4ca881ad73a74a70";
 export const METAMASK_ACCOUNT_OLD = "0x9921Ea2077972B51950496EFa02e68F0ad2bc4D6";
+export const META_PROD = "0xD64Dc5b35C3F1F794918DCA459d0F98aA60B08D5";
 
 export const SOME_ADDRESS = "1000000000000000000000000000000000000002";
 
@@ -91,6 +93,10 @@ let context = createClient()
 
 async function start() {
 
+	let core_balance = await context.web3.eth.getBalance(SOME_ACCOUNT)
+
+	console.log("Core balance: ", core_balance)
+
 	let balance = await context.web3.eth.getBalance(GENESIS_ACCOUNT)
 
 	console.log("Balance: ", balance);
@@ -103,20 +109,24 @@ async function start() {
 
 	console.log("Metamask: ", meta_balance);
 
+	let meta_balance_old = await context.web3.eth.getBalance(METAMASK_ACCOUNT_OLD)
+
+	console.log("Metamask old: ", meta_balance_old);
+
 	let test_balance= await context.web3.eth.getBalance(SOME_ADDRESS)
 
 	console.log("Test account before: ", test_balance);
 
-	const gasPrice = "0x10B9ACA0000000"; // 1000000000
+	const gasPrice = "0x10B9ACA000000"; // 1000000000
 	const tx = await context.web3.eth.accounts.signTransaction(
 		{
-			from: METAMASK_ACCOUNT,
-			to: SECOND_META_ACCOUNT,
+			from: GENESIS_ACCOUNT,
+			to: META_PROD,
 			value: 10000000000000000000,
 			gasPrice: gasPrice,
 			gas: "0x1000000",
 		},
-		METAMASK_PRIVATE
+		GENESIS_ACCOUNT_PRIVATE_KEY,
 	);
 	let result = await customRequest(context.web3, "eth_sendRawTransaction", [tx.rawTransaction]);
 
