@@ -26,6 +26,11 @@ sp-std = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 sp-arithmetic = { workspace = true }
+
+#
+#sp-runtime = {}
+#frame_election_provider_support
+
 # Substrate FRAME
 frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
@@ -33,14 +38,20 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api = { workspace = true }
-pallet-aura = { workspace = true }
+pallet-babe = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-
+pallet-session = { workspace = true }
+pallet-offences = { workspace = true }
+pallet-staking-reward-curve = { workspace = true }
+pallet-staking = { workspace = true }
+sp-staking = { workspace = true }
+pallet-collective = { workspace = true }
+sp-consensus-babe = { workspace = true }
 # Frontier
 fp-evm = { workspace = true }
 fp-rpc = { workspace = true }
@@ -55,6 +66,19 @@ pallet-evm-precompile-modexp = { workspace = true }
 pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
 pallet-hotfix-sufficients = { workspace = true }
+pallet-im-online = { workspace = true }
+pallet-authority-discovery = { workspace = true }
+
+
+pallet-bags-list = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-election-provider-multi-phase = { workspace = true }
+pallet-nomination-pools = { workspace = true }
+
+frame-election-provider-support = { workspace = true }
+
+sp-io = { workspace = true }
+
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
@@ -65,6 +89,8 @@ with-rocksdb-weights = []
 with-paritydb-weights = []
 std = [
 	"scale-codec/std",
+	"pallet-authority-discovery/std",
+	"pallet-im-online/std",
 	"scale-info/std",
 	# Substrate
 	"sp-api/std",
@@ -86,7 +112,7 @@ std = [
 	"frame-system/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system-benchmarking/std",
-	"pallet-aura/std",
+	"pallet-babe/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
 	"pallet-sudo/std",
@@ -107,6 +133,8 @@ std = [
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompile-simple/std",
 	"pallet-hotfix-sufficients/std",
+	"pallet-collective/std",
+	"pallet-staking/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
