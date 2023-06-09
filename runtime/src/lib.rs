@@ -25,9 +25,16 @@ use sp_std::{marker::PhantomData, prelude::*};
 use sp_runtime::{create_runtime_str, curve::PiecewiseLinear, generic, impl_opaque_keys, traits::{
 	self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor, OpaqueKeys,
 	SaturatedConversion, StaticLookup,
-}, transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity}, ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill, MultiSignature};
+}, transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity}, ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill, MultiSignature, ConsensusEngineId};
 use sp_version::RuntimeVersion;
+use sp_runtime::transaction_validity::TransactionValidityError;
 // Substrate FRAME
+use sp_arithmetic::traits::UniqueSaturatedInto;
+use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::DispatchInfoOf;
+use sp_runtime::traits::PostDispatchInfoOf;
+use frame_system::limits::{BlockLength, BlockWeights};
+
 
 #[cfg(feature = "with-rocksdb-weights")]
 use frame_support::weights::constants::RocksDbWeight as RuntimeDbWeight;
@@ -67,6 +74,10 @@ use frame_election_provider_support::{
 };
 pub use pallet_timestamp::Call as TimestampCall;
 use sp_runtime::traits::{AccountIdLookup, IdentifyAccount, Verify};
+use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
+
+pub mod constants;
+use constants::{currency::*, time::*};
 
 mod precompiles;
 mod const_evm_transaction;
@@ -74,8 +85,7 @@ mod const_evm_transaction;
 use precompiles::FrontierPrecompiles;
 use crate::const_evm_transaction::EVMConstFeeAdapter;
 
-/// Type of block number.
-pub type BlockNumber = u32;
+mod voter_bags;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -84,18 +94,6 @@ pub type Signature = MultiSignature;
 /// to the public key of our transaction signing scheme.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-/// The type for looking up accounts. We don't expect more than 4 billion of them, but you
-/// never know...
-pub type AccountIndex = u32;
-
-/// Balance of an account.
-pub type Balance = u128;
-
-/// Index of a transaction in the chain.
-pub type Index = u32;
-
-/// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
 
 /// Digest item type.
 pub type DigestItem = generic::DigestItem;
@@ -243,7 +241,7 @@ pub fn native_version() -> sp_version::NativeVersion {
 		can_author_with: Default::default(),
 	}
 }
-
+const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2000ms of compute with a 6 second average block time.
 pub const WEIGHT_MILLISECS_PER_BLOCK: u64 = 2000;
@@ -256,15 +254,15 @@ pub const MAXIMUM_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const BlockHashCount: BlockNumber = 256;
-	pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights
-		::with_sensible_defaults(MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO);
-	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
-		::max_with_normal_ratio(MAXIMUM_BLOCK_LENGTH, NORMAL_DISPATCH_RATIO);
+	// pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights
+	// 	::with_sensible_defaults(MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO);
+	// pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
+	// 	::max_with_normal_ratio(MAXIMUM_BLOCK_LENGTH, NORMAL_DISPATCH_RATIO);
 	pub const SS58Prefix: u8 = 42;
 
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
-	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
+	pub RuntimeBlockWeights: BlockWeights = frame_system::limits::BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
 			weights.base_extrinsic = ExtrinsicBaseWeight::get();
@@ -292,9 +290,9 @@ impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
 	type BaseCallFilter = frame_support::traits::Everything;
 	/// Block & extrinsics weights: base values and limits.
-	type BlockWeights = BlockWeights;
+	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
-	type BlockLength = BlockLength;
+	type BlockLength = RuntimeBlockLength;
 	/// The ubiquitous origin type.
 	type RuntimeOrigin = RuntimeOrigin;
 	/// The aggregated dispatch type that is available for extrinsics.
@@ -462,6 +460,21 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+pub struct FindAuthorTruncated<F>(PhantomData<F>);
+impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
+	fn find_author<'a, I>(digests: I) -> Option<H160>
+		where
+			I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+	{
+		if let Some(author_index) = F::find_author(digests) {
+			let authority_id = Babe::authorities()[author_index as usize].clone();
+			return Some(H160::from_slice(&authority_id.0.to_raw_vec()[4..24]));
+		}
+		None
+	}
+}
+
+
 impl pallet_evm_chain_id::Config for Runtime {}
 
 const BLOCK_GAS_LIMIT: u64 = 75_000_000;
@@ -489,7 +502,7 @@ impl pallet_evm::Config for Runtime {
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type OnChargeTransaction = EVMConstFeeAdapter<Balances, ()>;
 	type OnCreate = ();
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+	type FindAuthor = FindAuthorTruncated<Babe>;
 }
 
 parameter_types! {
@@ -586,6 +599,10 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
 	type VotersBound = MaxOnChainElectingVoters;
 	type TargetsBound = MaxOnChainElectableTargets;
+}
+
+parameter_types! {
+	pub const BagThresholds: &'static [u64] = &voter_bags::THRESHOLDS;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -745,6 +762,16 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	}
 }
 
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+	type EventHandler = (Staking, ImOnline);
+}
+
+type EnsureRootOrHalfCouncil = EitherOfDiverse<
+	EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
+>;
+
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -840,6 +867,43 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = MaxPointsToBalance;
 }
 
+parameter_types! {
+	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
+	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
+	pub const BountyDepositBase: Balance = 1 * DOLLARS;
+	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
+	pub const CuratorDepositMin: Balance = 1 * DOLLARS;
+	pub const CuratorDepositMax: Balance = 100 * DOLLARS;
+	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
+	pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
+}
+
+impl pallet_bounties::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type BountyDepositBase = BountyDepositBase;
+	type BountyDepositPayoutDelay = BountyDepositPayoutDelay;
+	type BountyUpdatePeriod = BountyUpdatePeriod;
+	type CuratorDepositMultiplier = CuratorDepositMultiplier;
+	type CuratorDepositMin = CuratorDepositMin;
+	type CuratorDepositMax = CuratorDepositMax;
+	type BountyValueMinimum = BountyValueMinimum;
+	type DataDepositPerByte = DataDepositPerByte;
+	type MaximumReasonLength = MaximumReasonLength;
+	type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
+	type ChildBountyManager = ChildBounties;
+}
+
+parameter_types! {
+	pub const ChildBountyValueMinimum: Balance = 1 * DOLLARS;
+}
+
+impl pallet_child_bounties::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MaxActiveChildBountyCount = ConstU32<5>;
+	type ChildBountyValueMinimum = ChildBountyValueMinimum;
+	type WeightInfo = pallet_child_bounties::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -872,6 +936,8 @@ construct_runtime!(
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		NominationPools: pallet_nomination_pools,
 		Council: pallet_collective::<Instance1>,
+		Bounties: pallet_bounties,
+		ChildBounties: pallet_child_bounties,
 	}
 );
 

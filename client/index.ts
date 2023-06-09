@@ -11,8 +11,8 @@ export const RPC_PORT = 8545;
 // export const RPC_PORT = 30333;
 export const WS_PORT = 9944;
 
-export const URL = "http://0.0.0.0";
-// export const URL = "http://185.183.34.79";
+// export const URL = "http://0.0.0.0";
+export const URL = "http://185.183.34.146";
 
 export const DISPLAY_LOG = process.env.FRONTIER_LOG || false;
 export const FRONTIER_LOG = process.env.FRONTIER_LOG || "info";
@@ -31,6 +31,8 @@ export const METAMASK_ACCOUNT_OLD = "0x9921Ea2077972B51950496EFa02e68F0ad2bc4D6"
 export const META_PROD = "0xD64Dc5b35C3F1F794918DCA459d0F98aA60B08D5";
 
 export const SOME_ADDRESS = "1000000000000000000000000000000000000002";
+
+export const USER = "0x5295aE7b5d1aA51FBaB2D6c447a888A6131E7A82"
 
 export async function customRequest(web3: Web3, method: string, params: any[]) {
 	return new Promise<JsonRpcResponse>((resolve, reject) => {
@@ -121,8 +123,8 @@ async function start() {
 	const tx = await context.web3.eth.accounts.signTransaction(
 		{
 			from: GENESIS_ACCOUNT,
-			to: META_PROD,
-			value: 10000000000000000000,
+			to: USER,
+			value: "1000000000000000000000",
 			gasPrice: gasPrice,
 			gas: "0x1000000",
 		},
