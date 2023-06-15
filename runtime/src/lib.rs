@@ -65,16 +65,16 @@ use pallet_evm::{
 };
 
 // A few exports that help ease life for downstream crates.
-pub use frame_system::Call as SystemCall;
+// pub use frame_system::Call as SystemCall;
 use frame_system::EnsureRoot;
 use frame_system::offchain::Signer;
-pub use pallet_balances::Call as BalancesCall;
+// pub use pallet_balances::Call as BalancesCall;
 use frame_election_provider_support::{
 	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
 pub use pallet_timestamp::Call as TimestampCall;
 use sp_runtime::traits::{AccountIdLookup, IdentifyAccount, Verify};
-use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
+use node_primitives::{AccountIndex, Balance as PrimitiveBalance, BlockNumber, Hash as PrimitiveHash, Index as PrimitiveIndex, Moment};
 
 pub mod constants;
 use constants::{currency::*, time::*};
@@ -87,11 +87,27 @@ use crate::const_evm_transaction::EVMConstFeeAdapter;
 
 mod voter_bags;
 
+#[cfg(any(feature = "std", test))]
+use sp_version::NativeVersion;
+
+#[cfg(any(feature = "std", test))]
+pub use frame_system::Call as SystemCall;
+#[cfg(any(feature = "std", test))]
+pub use pallet_balances::Call as BalancesCall;
+#[cfg(any(feature = "std", test))]
+pub use pallet_staking::StakerStatus;
+#[cfg(any(feature = "std", test))]
+pub use pallet_sudo::Call as SudoCall;
+
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
 
+pub type Balance = PrimitiveBalance;
+pub type Index = PrimitiveIndex;
+pub type Hash = PrimitiveHash;
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
+///
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 

@@ -74,6 +74,9 @@ node-primitives = { workspace = true }
 pallet-bounties = { workspace = true }
 pallet-child-bounties = { workspace = true }
 
+sp-authority-discovery = { workspace = true }
+
+
 frame-election-provider-support = { workspace = true }
 
 sp-io = { workspace = true }
