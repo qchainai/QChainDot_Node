@@ -3,15 +3,20 @@ use std::{collections::BTreeMap, str::FromStr};
 use serde::{Deserialize, Serialize};
 // Substrate
 use sc_service::ChainType;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, storage::Storage, Pair, Public, H160, U256};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
+use sp_runtime::Perbill;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_state_machine::BasicExternalities;
 // Frontier
-use qchain_template_runtime::{
-	AccountId, EnableManualSeal, GenesisConfig, Signature, WASM_BINARY,
-};
+use qchain_template_runtime::{AccountId, Balance, EnableManualSeal, GenesisConfig, MaxNominations, Signature, StakerStatus, WASM_BINARY};
+use qchain_template_runtime::{CouncilConfig, ImOnlineConfig, NominationPoolsConfig, SessionConfig, StakingConfig};
+use qchain_template_runtime::AuthorityDiscoveryConfig;
+use qchain_template_runtime::constants::currency::DOLLARS;
+use sp_consensus_babe::AuthorityId as BabeId;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use qchain_template_runtime::opaque::SessionKeys;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -60,8 +65,26 @@ where
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+pub fn authority_keys_from_seed(
+	seed: &str,
+) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId) {
+	(
+		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+		get_account_id_from_seed::<sr25519::Public>(seed),
+		get_from_seed::<GrandpaId>(seed),
+		get_from_seed::<BabeId>(seed),
+		get_from_seed::<ImOnlineId>(seed),
+		get_from_seed::<AuthorityDiscoveryId>(seed),
+	)
+}
+
+fn session_keys(
+	grandpa: GrandpaId,
+	babe: BabeId,
+	im_online: ImOnlineId,
+	authority_discovery: AuthorityDiscoveryId,
+) -> SessionKeys {
+	SessionKeys { grandpa, babe, im_online, authority_discovery }
 }
 
 pub fn development_config(enable_manual_seal: Option<bool>) -> DevChainSpec {
@@ -86,8 +109,10 @@ pub fn development_config(enable_manual_seal: Option<bool>) -> DevChainSpec {
 						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 					],
+
 					// Initial PoA authorities
 					vec![authority_keys_from_seed("Alice")],
+					vec![],
 					42,
 				),
 				enable_manual_seal,
@@ -141,6 +166,7 @@ pub fn local_testnet_config() -> ChainSpec {
 					authority_keys_from_seed("Alice"),
 					authority_keys_from_seed("Bob"),
 				],
+				vec![],
 				42,
 			)
 		},
@@ -163,13 +189,42 @@ fn testnet_genesis(
 	wasm_binary: &[u8],
 	sudo_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	initial_authorities: Vec<(
+		AccountId,
+		AccountId,
+		GrandpaId,
+		BabeId,
+		ImOnlineId,
+		AuthorityDiscoveryId,
+	)>,
+	initial_nominators: Vec<AccountId>,
 	chain_id: u64,
 ) -> GenesisConfig {
 	use qchain_template_runtime::{
-		AuraConfig, BalancesConfig, EVMChainIdConfig, EVMConfig, GrandpaConfig, SudoConfig,
+		BabeConfig, BalancesConfig, EVMChainIdConfig, EVMConfig, GrandpaConfig, SudoConfig,
 		SystemConfig,
 	};
+
+	let mut rng = rand::thread_rng();
+
+	const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
+	const STASH: Balance = ENDOWMENT / 1000;
+	let stakers = initial_authorities
+		.iter()
+		.map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
+		.chain(initial_nominators.iter().map(|x| {
+			use rand::{seq::SliceRandom, Rng};
+			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
+			let count = rng.gen::<usize>() % limit;
+			let nominations = initial_authorities
+				.as_slice()
+				.choose_multiple(&mut rng, count)
+				.into_iter()
+				.map(|choice| choice.0.clone())
+				.collect::<Vec<_>>();
+			(x.clone(), x.clone(), STASH, StakerStatus::Nominator(nominations))
+		}))
+		.collect::<Vec<_>>();
 
 	GenesisConfig {
 		// System
@@ -193,16 +248,7 @@ fn testnet_genesis(
 		},
 		transaction_payment: Default::default(),
 
-		// Consensus
-		aura: AuraConfig {
-			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-		},
-		grandpa: GrandpaConfig {
-			authorities: initial_authorities
-				.iter()
-				.map(|x| (x.1.clone(), 1))
-				.collect(),
-		},
+		grandpa: GrandpaConfig { authorities: vec![] },
 
 		// EVM compatibility
 		evm_chain_id: EVMChainIdConfig { chain_id },
@@ -263,5 +309,38 @@ fn testnet_genesis(
 		ethereum: Default::default(),
 		dynamic_fee: Default::default(),
 		base_fee: Default::default(),
+		authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+		babe: BabeConfig {
+			authorities: vec![],
+			epoch_config: Some(qchain_template_runtime::BABE_GENESIS_EPOCH_CONFIG),
+		},
+		council: CouncilConfig::default(),
+		im_online: ImOnlineConfig { keys: vec![] },
+		nomination_pools: NominationPoolsConfig {
+			min_create_bond: 10 * DOLLARS,
+			min_join_bond: 1 * DOLLARS,
+			..Default::default()
+		},
+		session: SessionConfig {
+			keys: initial_authorities
+				.iter()
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.0.clone(),
+						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+					)
+				})
+				.collect::<Vec<_>>(),
+		},
+		staking: StakingConfig {
+			validator_count: initial_authorities.len() as u32,
+			minimum_validator_count: initial_authorities.len() as u32,
+			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			slash_reward_fraction: Perbill::from_percent(10),
+			stakers,
+			..Default::default()
+		},
+		treasury: Default::default(),
 	}
 }

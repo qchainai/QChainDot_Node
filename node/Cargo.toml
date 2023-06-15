@@ -76,6 +76,17 @@ fp-evm = { workspace = true, features = ["default"] }
 fp-rpc = { workspace = true, features = ["default"] }
 qchain-template-runtime = { workspace = true, features = ["default"] }
 
+pallet-im-online = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sc-consensus-babe = { workspace = true }
+sc-consensus-epochs = { workspace = true }
+sp-keystore = { workspace = true }
+sc-chain-spec = { workspace = true }
+node-primitives = { workspace = true }
+
+sp-authority-discovery = { workspace = true }
+rand = "0.8"
+
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
 
