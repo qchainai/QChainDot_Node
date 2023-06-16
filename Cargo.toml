@@ -107,8 +107,18 @@ sc-consensus-babe = { version = "0.10.0-dev", default-features = false, git = "h
 sc-consensus-epochs = { version = "0.10.0-dev", default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
 sp-keystore = { version = "0.13.0", default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
 sc-chain-spec = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
+sc-consensus-slots = { version = "0.10.0-dev", default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
+sp-transaction-storage-proof = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
+sc-authority-discovery = { version = "0.10.0-dev", default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
 
+sc-consensus-babe-rpc = { version = "0.10.0-dev",default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
+sc-finality-grandpa-rpc = { version = "0.10.0-dev", default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
+sc-sync-state-rpc = { version = "0.10.0-dev", default-features = false, git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
+substrate-state-trie-migration-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
+sc-rpc-spec-v2 = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
+mmr-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
 # Substrate Utility
+
 frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375" }

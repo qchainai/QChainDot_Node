@@ -11,12 +11,15 @@ use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, StateBackendFor};
 use sc_consensus::BasicQueue;
 use sc_executor::{NativeElseWasmExecutor, NativeExecutionDispatch};
+use sc_network_common::service::NetworkEventStream;
+use sc_network_common::protocol::event::Event;
 use sc_network_common::sync::warp::WarpSyncParams;
 use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker};
 use sp_api::{ConstructRuntimeApi, TransactionFor};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_consensus_babe::BabeApi;
+use sc_consensus_babe::{self, SlotProportion};
 use sp_core::U256;
 use sp_finality_grandpa::GrandpaApi;
 use sp_runtime::traits::BlakeTwo256;
@@ -47,7 +50,7 @@ type GrandpaBlockImport<Client> =
 type GrandpaLinkHalf<Client> = sc_finality_grandpa::LinkHalf<Block, Client, FullSelectChain>;
 type BoxBlockImport<Client> = sc_consensus::BoxBlockImport<Block, TransactionFor<Client, Block>>;
 
-pub fn new_partial<RuntimeApi, Executor, BIQ>(
+pub fn new_partial<RuntimeApi, Executor>(
 	config: &Configuration,
 ) -> Result<
 	PartialComponents<
@@ -76,21 +79,6 @@ where
 		+ TransactionPaymentRuntimeApi<Block, Balance> + ConvertTransactionRuntimeApi<Block>
 		+ EthereumRuntimeRPCApi<Block>,
 	Executor: NativeExecutionDispatch + 'static,
-	BIQ: FnOnce(
-		Arc<FullClient<RuntimeApi, Executor>>,
-		&Configuration,
-		&EthConfiguration,
-		&TaskManager,
-		Option<TelemetryHandle>,
-		GrandpaBlockImport<FullClient<RuntimeApi, Executor>>,
-		Arc<FrontierBackend>,
-	) -> Result<
-		(
-			BasicImportQueue<FullClient<RuntimeApi, Executor>>,
-			BoxBlockImport<FullClient<RuntimeApi, Executor>>,
-		),
-		ServiceError,
-	>,
 {
 	let telemetry = config
 		.telemetry_endpoints
@@ -225,18 +213,20 @@ where
 }
 
 /// Builds a new service for a full client.
-pub fn new_full<RuntimeApi, Executor>(
+pub fn new_full
+// <RuntimeApi, Executor>
+(
 	mut config: Configuration,
 	eth_config: EthConfiguration,
 	sealing: Option<Sealing>,
 ) -> Result<TaskManager, ServiceError>
-where
-	RuntimeApi: ConstructRuntimeApi<Block, FullClient<RuntimeApi, Executor>>,
-	RuntimeApi: Send + Sync + 'static,
-	RuntimeApi::RuntimeApi:
-		RuntimeApiCollection<StateBackend = StateBackendFor<FullBackend, Block>> +
-	AccountNonceApi<Block, AccountId, Index>,
-	Executor: NativeExecutionDispatch + 'static,
+// where
+// 	RuntimeApi: ConstructRuntimeApi<Block, FullClient<RuntimeApi, Executor>>,
+// 	RuntimeApi: Send + Sync + 'static,
+// 	RuntimeApi::RuntimeApi:
+// 		RuntimeApiCollection<StateBackend = StateBackendFor<FullBackend, Block>> +
+// 	AccountNonceApi<Block, AccountId, Index>,
+// 	Executor: NativeExecutionDispatch + 'static,
 {
 	// let build_import_queue = if sealing.is_some() {
 	// 	build_manual_seal_import_queue::<RuntimeApi, Executor>
@@ -252,8 +242,8 @@ where
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (mut telemetry, block_import, grandpa_link, frontier_backend),
-	} = new_partial(&config)?;
+		other: (mut telemetry, block_import, grandpa_link, frontier_backend, babe_link),
+	} = new_partial::<qchain_template_runtime::RuntimeApi, TemplateRuntimeExecutor>(&config)?;
 
 	let FrontierPartialComponents {
 		filter_pool,
@@ -265,6 +255,7 @@ where
 		&client.block_hash(0)?.expect("Genesis block exists; qed"),
 		&config.chain_spec,
 	);
+
 
 	let warp_sync_params = if sealing.is_some() {
 		None
@@ -306,12 +297,35 @@ where
 
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
+	let backoff_authoring_blocks =
+		Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
 	let name = config.network.node_name.clone();
 	let enable_grandpa = !config.disable_grandpa && sealing.is_none();
 	let prometheus_registry = config.prometheus_registry().cloned();
 
 	// Channel for the rpc handler to communicate with the authorship task.
-	let (command_sink, commands_stream) = mpsc::channel(1000);
+	// let (command_sink, commands_stream) = mpsc::channel(1000);
+
+
+	// if let Some(hwbench) = hwbench {
+	// 	sc_sysinfo::print_hwbench(&hwbench);
+	// 	if !SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) && role.is_authority() {
+	// 		log::warn!(
+	// 			"⚠️  The hardware does not meet the minimal requirements for role 'Authority'."
+	// 		);
+	// 	}
+	//
+	// 	if let Some(ref mut telemetry) = telemetry {
+	// 		let telemetry_handle = telemetry.handle();
+	// 		task_manager.spawn_handle().spawn(
+	// 			"telemetry_hwbench",
+	// 			None,
+	// 			sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
+	// 		);
+	// 	}
+	// }
+
+
 
 	// for ethereum-compatibility rpc.
 	config.rpc_id_provider = Some(Box::new(fc_rpc::EthereumSubIdProvider));
@@ -341,88 +355,89 @@ where
 	};
 
 
-	// let (rpc_extensions_builder, rpc_setup) = {
-	// 	let (_, grandpa_link, babe_link) = &import_setup;
-	//
-	// 	let justification_stream = grandpa_link.justification_stream();
-	// 	let shared_authority_set = grandpa_link.shared_authority_set().clone();
-	// 	let shared_voter_state = sc_finality_grandpa::SharedVoterState::empty();
-	// 	let shared_voter_state2 = shared_voter_state.clone();
-	//
-	// 	let finality_proof_provider = sc_finality_grandpa::FinalityProofProvider::new_for_service(
-	// 		backend.clone(),
-	// 		Some(shared_authority_set.clone()),
-	// 	);
-	//
-	// 	let babe_config = babe_link.config().clone();
-	// 	let shared_epoch_changes = babe_link.epoch_changes().clone();
-	//
-	// 	let client = client.clone();
-	// 	let pool = transaction_pool.clone();
-	// 	let select_chain = select_chain.clone();
-	// 	let keystore = keystore_container.sync_keystore();
-	// 	let chain_spec = config.chain_spec.cloned_box();
-	//
-	// 	let rpc_backend = backend.clone();
-	// 	let rpc_extensions_builder = move |deny_unsafe, subscription_executor| {
-	// 		let deps = crate::rpc::FullDeps {
-	// 			client: client.clone(),
-	// 			pool: pool.clone(),
-	// 			select_chain: select_chain.clone(),
-	// 			chain_spec: chain_spec.cloned_box(),
-	// 			deny_unsafe,
-	// 			babe: crate::rpc::BabeDeps {
-	// 				babe_config: babe_config.clone(),
-	// 				shared_epoch_changes: shared_epoch_changes.clone(),
-	// 				keystore: keystore.clone(),
-	// 			},
-	// 			grandpa: crate::rpc::GrandpaDeps {
-	// 				shared_voter_state: shared_voter_state.clone(),
-	// 				shared_authority_set: shared_authority_set.clone(),
-	// 				justification_stream: justification_stream.clone(),
-	// 				subscription_executor,
-	// 				finality_provider: finality_proof_provider.clone(),
-	// 			},
-	// 			command_sink: None,
-	// 			eth: eth_rpc_params,
-	// 		};
-	//
-	// 		crate::rpc::create_full(deps, rpc_backend.clone()).map_err(Into::into)
-	// 	};
-	//
-	// 	(rpc_extensions_builder, shared_voter_state2)
-	// };
+	let (rpc_builder, rpc_setup) = {
 
+		let justification_stream = grandpa_link.justification_stream();
+		let shared_authority_set = grandpa_link.shared_authority_set().clone();
+		let shared_voter_state = sc_finality_grandpa::SharedVoterState::empty();
+		let shared_voter_state2 = shared_voter_state.clone();
 
-	let rpc_builder = {
+		let finality_proof_provider = sc_finality_grandpa::FinalityProofProvider::new_for_service(
+			backend.clone(),
+			Some(shared_authority_set.clone()),
+		);
+
+		let babe_config = babe_link.config().clone();
+		let shared_epoch_changes = babe_link.epoch_changes().clone();
+
 		let client = client.clone();
 		let pool = transaction_pool.clone();
+		let select_chain = select_chain.clone();
+		let keystore = keystore_container.sync_keystore();
+		let chain_spec = config.chain_spec.cloned_box();
 
-		Box::new(move |deny_unsafe, subscription_task_executor| {
+		let rpc_backend = backend.clone();
+		let rpc_extensions_builder = move |deny_unsafe, subscription_executor: sc_rpc::SubscriptionTaskExecutor| {
 			let deps = crate::rpc::FullDeps {
 				client: client.clone(),
 				pool: pool.clone(),
+				select_chain: select_chain.clone(),
+				chain_spec: chain_spec.cloned_box(),
 				deny_unsafe,
-				command_sink: if sealing.is_some() {
-					Some(command_sink.clone())
-				} else {
-					None
+				babe: crate::rpc::BabeDeps {
+					babe_config: babe_config.clone(),
+					shared_epoch_changes: shared_epoch_changes.clone(),
+					keystore: keystore.clone(),
 				},
+				grandpa: crate::rpc::GrandpaDeps {
+					shared_voter_state: shared_voter_state.clone(),
+					shared_authority_set: shared_authority_set.clone(),
+					justification_stream: justification_stream.clone(),
+					subscription_executor: subscription_executor.clone(),
+					finality_provider: finality_proof_provider.clone(),
+				},
+				command_sink: None,
 				eth: eth_rpc_params.clone(),
 			};
 
-			crate::rpc::create_full(deps, subscription_task_executor).map_err(Into::into)
-		})
+			crate::rpc::create_full(deps, subscription_executor, rpc_backend.clone()).map_err(Into::into)
+		};
+
+		(rpc_extensions_builder, shared_voter_state2)
 	};
 
-	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+
+	// let rpc_builder = {
+	// 	let client = client.clone();
+	// 	let pool = transaction_pool.clone();
+	//
+	// 	Box::new(move |deny_unsafe, subscription_task_executor| {
+	// 		let deps = crate::rpc::FullDeps {
+	// 			client: client.clone(),
+	// 			pool: pool.clone(),
+	// 			deny_unsafe,
+	// 			command_sink: if sealing.is_some() {
+	// 				Some(command_sink.clone())
+	// 			} else {
+	// 				None
+	// 			},
+	// 			eth: eth_rpc_params.clone(),
+	// 		};
+	//
+	// 		crate::rpc::create_full(deps, subscription_task_executor).map_err(Into::into)
+	// 	})
+	// };
+
+	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
+
+	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		config,
 		client: client.clone(),
 		backend: backend.clone(),
 		task_manager: &mut task_manager,
 		keystore: keystore_container.sync_keystore(),
 		transaction_pool: transaction_pool.clone(),
-		rpc_builder,
+		rpc_builder: Box::new(rpc_builder),
 		network: network.clone(),
 		system_rpc_tx,
 		tx_handler_controller,
@@ -440,116 +455,132 @@ where
 		fee_history_cache_limit,
 	);
 
-	if role.is_authority() {
-		// manual-seal authorship
-		if let Some(sealing) = sealing {
-			run_manual_seal_authorship(
-				&eth_config,
-				sealing,
-				client,
-				transaction_pool,
-				select_chain,
-				block_import,
-				&task_manager,
-				prometheus_registry.as_ref(),
-				telemetry.as_ref(),
-				commands_stream,
-			)?;
-
-			network_starter.start_network();
-			log::info!("Manual Seal Ready");
-			return Ok(task_manager);
-		}
-
-		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
+	if let sc_service::config::Role::Authority { .. } = &role {
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
-			transaction_pool,
+			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
 		);
 
-		let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-		let target_gas_price = eth_config.target_gas_price;
-		let create_inherent_data_providers = move |_, ()| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-				*timestamp,
-				slot_duration,
-			);
-			let dynamic_fee = fp_dynamic_fee::InherentDataProvider(U256::from(target_gas_price));
-			Ok((slot, timestamp, dynamic_fee))
+		let client_clone = client.clone();
+		let slot_duration = babe_link.config().slot_duration();
+		let babe_config = sc_consensus_babe::BabeParams {
+			keystore: keystore_container.sync_keystore(),
+			client: client.clone(),
+			select_chain,
+			env: proposer,
+			block_import,
+			sync_oracle: network.clone(),
+			justification_sync_link: network.clone(),
+			create_inherent_data_providers: move |parent, ()| {
+				let client_clone = client_clone.clone();
+				async move {
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+					let slot =
+						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+							*timestamp,
+							slot_duration,
+						);
+
+					let storage_proof =
+						sp_transaction_storage_proof::registration::new_data_provider(
+							&*client_clone,
+							&parent,
+						)?;
+
+					Ok((slot, timestamp, storage_proof))
+				}
+			},
+			force_authoring,
+			backoff_authoring_blocks,
+			babe_link,
+			block_proposal_slot_portion: SlotProportion::new(0.5),
+			max_block_proposal_slot_portion: None,
+			telemetry: telemetry.as_ref().map(|x| x.handle()),
 		};
 
-		let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _>(
-			sc_consensus_aura::StartAuraParams {
-				slot_duration,
-				client,
-				select_chain,
-				block_import,
-				proposer_factory,
-				sync_oracle: network.clone(),
-				justification_sync_link: network.clone(),
-				create_inherent_data_providers,
-				force_authoring,
-				backoff_authoring_blocks: Option::<()>::None,
-				keystore: keystore_container.sync_keystore(),
-				block_proposal_slot_portion: sc_consensus_aura::SlotProportion::new(2f32 / 3f32),
-				max_block_proposal_slot_portion: None,
-				telemetry: telemetry.as_ref().map(|x| x.handle()),
-				compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
-			},
-		)?;
-		// the AURA authoring task is considered essential, i.e. if it
-		// fails we take down the service with it.
-		task_manager
-			.spawn_essential_handle()
-			.spawn_blocking("aura", Some("block-authoring"), aura);
+		let babe = sc_consensus_babe::start_babe(babe_config)?;
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"babe-proposer",
+			Some("block-authoring"),
+			babe,
+		);
 	}
 
+	// Spawn authority discovery module.
+	if role.is_authority() {
+		let authority_discovery_role =
+			sc_authority_discovery::Role::PublishAndDiscover(keystore_container.keystore());
+		let dht_event_stream =
+			network.event_stream("authority-discovery").filter_map(|e| async move {
+				match e {
+					Event::Dht(e) => Some(e),
+					_ => None,
+				}
+			});
+		let (authority_discovery_worker, _service) =
+			sc_authority_discovery::new_worker_and_service_with_config(
+				sc_authority_discovery::WorkerConfig {
+					publish_non_global_ips: auth_disc_publish_non_global_ips,
+					..Default::default()
+				},
+				client.clone(),
+				network.clone(),
+				Box::pin(dht_event_stream),
+				authority_discovery_role,
+				prometheus_registry.clone(),
+			);
+
+		task_manager.spawn_handle().spawn(
+			"authority-discovery-worker",
+			Some("networking"),
+			authority_discovery_worker.run(),
+		);
+	}
+
+	let keystore =
+		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
+
+	let config = sc_finality_grandpa::Config {
+		// FIXME #1578 make this available through chainspec
+		gossip_duration: std::time::Duration::from_millis(333),
+		justification_period: 512,
+		name: Some(name),
+		observer_enabled: false,
+		keystore,
+		local_role: role,
+		telemetry: telemetry.as_ref().map(|x| x.handle()),
+		protocol_name: grandpa_protocol_name,
+	};
+	let shared_voter_state = rpc_setup;
+
 	if enable_grandpa {
-		// if the node isn't actively participating in consensus then it doesn't
-		// need a keystore, regardless of which protocol we use below.
-		let keystore = if role.is_authority() {
-			Some(keystore_container.sync_keystore())
-		} else {
-			None
-		};
-
-		let grandpa_config = sc_finality_grandpa::Config {
-			// FIXME #1578 make this available through chainspec
-			gossip_duration: Duration::from_millis(333),
-			justification_period: 512,
-			name: Some(name),
-			observer_enabled: false,
-			keystore,
-			local_role: role,
-			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			protocol_name: grandpa_protocol_name,
-		};
-
 		// start the full GRANDPA voter
 		// NOTE: non-authorities could run the GRANDPA observer protocol, but at
 		// this point the full voter should provide better guarantees of block
 		// and vote data availability than the observer. The observer has not
 		// been tested extensively yet and having most nodes in a network run it
 		// could lead to finality stalls.
-		let grandpa_voter =
-			sc_finality_grandpa::run_grandpa_voter(sc_finality_grandpa::GrandpaParams {
-				config: grandpa_config,
-				link: grandpa_link,
-				network,
-				voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
-				prometheus_registry,
-				shared_voter_state: sc_finality_grandpa::SharedVoterState::empty(),
-				telemetry: telemetry.as_ref().map(|x| x.handle()),
-			})?;
+		let grandpa_config = sc_finality_grandpa::GrandpaParams {
+			config,
+			link: grandpa_link,
+			network: network.clone(),
+			telemetry: telemetry.as_ref().map(|x| x.handle()),
+			voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
+			prometheus_registry,
+			shared_voter_state,
+		};
 
 		// the GRANDPA voter task is considered infallible, i.e.
 		// if it fails we take down the service with it.
-		task_manager
-			.spawn_essential_handle()
-			.spawn_blocking("grandpa-voter", None, grandpa_voter);
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"grandpa-voter",
+			None,
+			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
+		);
 	}
 
 	network_starter.start_network();
@@ -656,7 +687,7 @@ pub fn build_full(
 	eth_config: EthConfiguration,
 	sealing: Option<Sealing>,
 ) -> Result<TaskManager, ServiceError> {
-	new_full::<qchain_template_runtime::RuntimeApi, TemplateRuntimeExecutor>(
+	new_full(
 		config, eth_config, sealing,
 	)
 }
@@ -674,16 +705,17 @@ pub fn new_chain_ops(
 	),
 	ServiceError,
 > {
-	config.keystore = sc_service::config::KeystoreConfig::InMemory;
-	let PartialComponents {
-		client,
-		backend,
-		import_queue,
-		task_manager,
-		other,
-		..
-	} = new_partial::<qchain_template_runtime::RuntimeApi, TemplateRuntimeExecutor, _>(
-		config,
-	)?;
-	Ok((client, backend, import_queue, task_manager, other.3))
+	// config.keystore = sc_service::config::KeystoreConfig::InMemory;
+	// let PartialComponents {
+	// 	client,
+	// 	backend,
+	// 	import_queue,
+	// 	task_manager,
+	// 	other,
+	// 	..
+	// } = new_partial::<qchain_template_runtime::RuntimeApi, TemplateRuntimeExecutor, _>(
+	// 	config,
+	// )?;
+	// Ok((client, backend, import_queue, task_manager, other.3))
+	unimplemented!()
 }

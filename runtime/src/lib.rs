@@ -34,7 +34,7 @@ use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::DispatchInfoOf;
 use sp_runtime::traits::PostDispatchInfoOf;
 use frame_system::limits::{BlockLength, BlockWeights};
-
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 
 #[cfg(feature = "with-rocksdb-weights")]
 use frame_support::weights::constants::RocksDbWeight as RuntimeDbWeight;
@@ -954,6 +954,8 @@ construct_runtime!(
 		Council: pallet_collective::<Instance1>,
 		Bounties: pallet_bounties,
 		ChildBounties: pallet_child_bounties,
+
+		// Mmr: pallet_mmr,
 	}
 );
 
@@ -1191,6 +1193,12 @@ impl_runtime_apis! {
 				equivocation_proof,
 				key_owner_proof,
 			)
+		}
+	}
+
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			AuthorityDiscovery::authorities()
 		}
 	}
 

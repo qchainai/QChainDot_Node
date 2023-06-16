@@ -9,7 +9,7 @@ use sp_runtime::Perbill;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_state_machine::BasicExternalities;
 // Frontier
-use qchain_template_runtime::{AccountId, Balance, EnableManualSeal, GenesisConfig, MaxNominations, Signature, StakerStatus, WASM_BINARY};
+use qchain_template_runtime::{AccountId, Balance, Block, EnableManualSeal, GenesisConfig, MaxNominations, Signature, StakerStatus, WASM_BINARY};
 use qchain_template_runtime::{CouncilConfig, ImOnlineConfig, NominationPoolsConfig, SessionConfig, StakingConfig};
 use qchain_template_runtime::AuthorityDiscoveryConfig;
 use qchain_template_runtime::constants::currency::DOLLARS;
@@ -17,15 +17,27 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use qchain_template_runtime::opaque::SessionKeys;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sc_chain_spec::ChainSpecExtension;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
+#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
+#[serde(rename_all = "camelCase")]
+pub struct Extensions {
+	/// Block numbers with known hashes.
+	pub fork_blocks: sc_client_api::ForkBlocks<Block>,
+	/// Known bad block hashes.
+	pub bad_blocks: sc_client_api::BadBlocks<Block>,
+	/// The light sync state extension used by the sync-state rpc.
+	pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
+}
+
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
 /// Specialized `ChainSpec` for development.
-pub type DevChainSpec = sc_service::GenericChainSpec<DevGenesisExt>;
+pub type DevChainSpec = sc_service::GenericChainSpec<DevGenesisExt, Extensions>;
 
 /// Extension for the dev genesis config to support a custom changes to the genesis state.
 #[derive(Serialize, Deserialize)]
@@ -128,7 +140,7 @@ pub fn development_config(enable_manual_seal: Option<bool>) -> DevChainSpec {
 		// Properties
 		None,
 		// Extensions
-		None,
+		Default::default(),
 	)
 }
 
@@ -180,7 +192,7 @@ pub fn local_testnet_config() -> ChainSpec {
 		// Properties
 		None,
 		// Extensions
-		None,
+		Default::default(),
 	)
 }
 
