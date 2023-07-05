@@ -130,7 +130,7 @@ fc-cli = { version = "1.0.0-dev", git = "ssh://git@bitbucket.org/qchainai/fronti
 fc-consensus = { version = "2.0.0-dev", git = "ssh://git@bitbucket.org/qchainai/frontier.git", rev = "35a447ea3328530357e8f6c391d520727c7095bb" }
 fc-db = { version = "2.0.0-dev", git = "ssh://git@bitbucket.org/qchainai/frontier.git", rev = "35a447ea3328530357e8f6c391d520727c7095bb" }
 fc-mapping-sync = { version = "2.0.0-dev", git = "ssh://git@bitbucket.org/qchainai/frontier.git", rev = "35a447ea3328530357e8f6c391d520727c7095bb" }
-fc-rpc = { version = "2.0.0-dev", git = "ssh://git@bitbucket.org/qchainai/frontier.git", rev = "35a447ea3328530357e8f6c391d520727c7095bb" }
+fc-rpc = { path = "./crates/rpc" }
 fc-rpc-core = { version = "1.1.0-dev", git = "ssh://git@bitbucket.org/qchainai/frontier.git", rev = "35a447ea3328530357e8f6c391d520727c7095bb" }
 fc-storage = { version = "1.0.0-dev", git = "ssh://git@bitbucket.org/qchainai/frontier.git", rev = "35a447ea3328530357e8f6c391d520727c7095bb" }
 # Frontier Primitive
