@@ -45,6 +45,7 @@ pallet-session = { workspace = true }
 pallet-offences = { workspace = true }
 pallet-staking-reward-curve = { workspace = true }
 pallet-staking = { workspace = true }
+pallet-utility = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", rev = "1837f423b494254e1d27834b1c9da34b2c0c2375", default-features = false }
 sp-staking = { workspace = true }
 pallet-collective = { workspace = true }
 sp-consensus-babe = { workspace = true }

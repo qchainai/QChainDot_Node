@@ -54,6 +54,7 @@ use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
+
 use pallet_transaction_payment::CurrencyAdapter;
 // Frontier
 use fp_evm::weight_per_gas;
@@ -167,6 +168,13 @@ pallet_staking_reward_curve::build! {
 		max_piece_count: 40,
 		test_precision: 0_005_000,
 	);
+}
+
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -928,6 +936,7 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
 		System: frame_system,
+		Utility: pallet_utility,
 		Timestamp: pallet_timestamp,
 		Babe: pallet_babe,
 		Grandpa: pallet_grandpa,
@@ -1086,7 +1095,7 @@ extern crate frame_benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	define_benchmarks!([pallet_evm, EVM]);
+	define_benchmarks!([pallet_evm, EVM][pallet_utility, Utility]);
 }
 
 impl_runtime_apis! {
