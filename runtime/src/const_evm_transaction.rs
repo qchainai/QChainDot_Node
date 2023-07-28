@@ -33,9 +33,6 @@ impl<T, C, OU> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU>
     type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
 
     fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, Error<T>> {
-        if fee.is_zero() {
-            return Ok(None);
-        }
         let payer = T::AddressMapping::into_account_id(*who);
         let fee = U256::from(CONST_TRANSACTION_FEE).unique_saturated_into();
         let imbalance = C::withdraw(

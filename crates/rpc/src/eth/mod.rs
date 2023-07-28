@@ -29,6 +29,7 @@ mod submit;
 mod transaction;
 
 use std::{collections::BTreeMap, marker::PhantomData, sync::Arc};
+use std::str::FromStr;
 
 use ethereum::{BlockV2 as EthereumBlock, TransactionV2 as EthereumTransaction};
 use ethereum_types::{H160, H256, H512, H64, U256, U64};
@@ -445,21 +446,7 @@ fn transaction_build(
 	let mut transaction: Transaction = ethereum_transaction.clone().into();
 
 	if let EthereumTransaction::EIP1559(_) = ethereum_transaction {
-		if block.is_none() && status.is_none() {
-			// If transaction is not mined yet, gas price is considered just max fee per gas.
-			transaction.gas_price = transaction.max_fee_per_gas;
-		} else {
-			let base_fee = base_fee.unwrap_or_default();
-			let max_priority_fee_per_gas = transaction.max_priority_fee_per_gas.unwrap_or_default();
-			let max_fee_per_gas = transaction.max_fee_per_gas.unwrap_or_default();
-			// If transaction is already mined, gas price is the effective gas price.
-			transaction.gas_price = Some(
-				base_fee
-					.checked_add(max_priority_fee_per_gas)
-					.unwrap_or_else(U256::max_value)
-					.min(max_fee_per_gas),
-			);
-		}
+		transaction.gas_price = Some(U256::from_dec_str("1000000000000").unwrap())
 	}
 
 	let pubkey = match public_key(&ethereum_transaction) {
