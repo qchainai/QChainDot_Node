@@ -261,15 +261,39 @@ fn testnet_genesis(
 		transaction_payment: Default::default(),
 
 		grandpa: GrandpaConfig { authorities: vec![] },
-
+//212 53 147
+// 167 131 159 191 202 109 161 41 255 158 47 245 33 17 91 126 180 33 59 33 80 134 252 52 22 199 163 64 233 68 204 73
+// 7374
 		// EVM compatibility
 		evm_chain_id: EVMChainIdConfig { chain_id },
 		evm: EVMConfig {
 			accounts: {
 				let mut map = BTreeMap::new();
-				// Core team: 1 141 678 367,76 QDT
+				map.insert(
+					H160::from_str("be5ddb1579b72e84524fc29e78609e3caf42e85a")
+						.expect("internal H160 is valid; qed"),
+					fp_evm::GenesisAccount {
+						balance: U256::from_str("3B05FCC548B94B056680000")
+							.expect("internal U256 is valid; qed"),
+						code: Default::default(),
+						nonce: Default::default(),
+						storage: Default::default(),
+					},
+				);
 				map.insert(
 					H160::from_str("d43593c715fdd31c61141abd04a99fd6822c8558")
+						.expect("internal H160 is valid; qed"),
+					fp_evm::GenesisAccount {
+						balance: U256::from_str("3B05FCC548B94B056680000")
+							.expect("internal U256 is valid; qed"),
+						code: Default::default(),
+						nonce: Default::default(),
+						storage: Default::default(),
+					},
+				);
+				// Core team: 1 141 678 367,76 QDT
+				map.insert(
+					H160::from_str("8eaf04151687736326c9fea17e25fc5287613693")
 						.expect("internal H160 is valid; qed"),
 					fp_evm::GenesisAccount {
 						balance: U256::from_str("3B05FCC548B94B056680000")

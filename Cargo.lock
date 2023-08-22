@@ -5103,7 +5103,6 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?rev=1837f423b494254e1d27834b1c9da34b2c0c2375#1837f423b494254e1d27834b1c9da34b2c0c2375"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",

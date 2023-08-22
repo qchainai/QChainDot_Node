@@ -54,7 +54,7 @@ use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-
+use pallet_staking::address_mapping::HashedAccountMapping;
 use pallet_transaction_payment::CurrencyAdapter;
 // Frontier
 use fp_evm::weight_per_gas;
@@ -228,6 +228,7 @@ impl pallet_staking::Config for Runtime {
 	type OnStakerSlash = NominationPools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
+	type AccountMapping = HashedAccountMapping<BlakeTwo256>;
 }
 
 
