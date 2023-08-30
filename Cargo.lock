@@ -5924,6 +5924,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-babe",
  "sp-core",
+ "sp-core-hashing",
  "sp-inherents",
  "sp-io",
  "sp-offchain",

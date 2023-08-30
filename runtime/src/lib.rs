@@ -12,10 +12,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use scale_codec::{Decode, Encode};
 use sp_api::impl_runtime_apis;
-use sp_core::{
-	crypto::{ByteArray, KeyTypeId},
-	OpaqueMetadata, H160, H256, U256,
-};
+use sp_core::{crypto::{ByteArray, KeyTypeId}, OpaqueMetadata, H160, H256, U256};
+use sp_core_hashing::keccak_256;
 use sp_arithmetic::{
 	traits::{BaseArithmetic, Saturating, Unsigned},
 };
@@ -38,12 +36,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 
 #[cfg(feature = "with-rocksdb-weights")]
 use frame_support::weights::constants::RocksDbWeight as RuntimeDbWeight;
-use frame_support::{
-	dispatch::DispatchClass,
-	construct_runtime, parameter_types,
-	traits::{ConstU32, ConstU8, FindAuthor, KeyOwnerProofSystem, OnTimestampSet},
-	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, ConstantMultiplier, IdentityFee, Weight},
-};
+use frame_support::{dispatch::DispatchClass, construct_runtime, parameter_types, traits::{ConstU32, ConstU8, FindAuthor, KeyOwnerProofSystem, OnTimestampSet}, weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, ConstantMultiplier, IdentityFee, Weight}, log};
 use frame_support::weights::constants::BlockExecutionWeight;
 use frame_support::weights::constants::ExtrinsicBaseWeight;
 use frame_support::PalletId;
@@ -87,6 +80,7 @@ use precompiles::FrontierPrecompiles;
 use crate::const_evm_transaction::EVMConstFeeAdapter;
 
 mod voter_bags;
+mod address;
 
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
@@ -500,6 +494,21 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
 }
 
 
+pub struct FindAuthorHashed<F>(PhantomData<F>);
+impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorHashed<F> {
+	fn find_author<'a, I>(digests: I) -> Option<H160>
+		where
+			I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+	{
+		if let Some(author_index) = F::find_author(digests) {
+			let authority_id = Babe::authorities()[author_index as usize].clone();
+			let hash = keccak_256(authority_id.0.to_raw_vec().as_slice());
+			return Some(H160::from_slice(&hash[hash.len() - 20..]));
+		}
+		None
+	}
+}
+
 impl pallet_evm_chain_id::Config for Runtime {}
 
 const BLOCK_GAS_LIMIT: u64 = 75_000_000;
@@ -515,8 +524,8 @@ impl pallet_evm::Config for Runtime {
 	type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
 	type WeightPerGas = WeightPerGas;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
-	type CallOrigin = EnsureAddressTruncated;
-	type WithdrawOrigin = EnsureAddressTruncated;
+	type CallOrigin = EnsureAddressHashing;
+	type WithdrawOrigin = EnsureAddressHashing;
 	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
@@ -527,7 +536,7 @@ impl pallet_evm::Config for Runtime {
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type OnChargeTransaction = EVMConstFeeAdapter<Balances, ()>;
 	type OnCreate = ();
-	type FindAuthor = FindAuthorTruncated<Babe>;
+	type FindAuthor = FindAuthorHashed<Babe>;
 }
 
 parameter_types! {
@@ -864,6 +873,8 @@ parameter_types! {
 }
 
 use sp_runtime::traits::Convert;
+use crate::address::EnsureAddressHashing;
+
 pub struct BalanceToU256;
 impl Convert<Balance, sp_core::U256> for BalanceToU256 {
 	fn convert(balance: Balance) -> sp_core::U256 {
