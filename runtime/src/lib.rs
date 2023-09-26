@@ -47,7 +47,7 @@ use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_staking::address_mapping::HashedAccountMapping;
+use pallet_staking::address_mapping::{HashedAccountMapping, TruncateAccountMapping};
 use pallet_transaction_payment::CurrencyAdapter;
 // Frontier
 use fp_evm::weight_per_gas;
@@ -173,7 +173,7 @@ impl pallet_utility::Config for Runtime {
 
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
+	pub const BondingDuration: sp_staking::EraIndex = 0;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
@@ -222,7 +222,7 @@ impl pallet_staking::Config for Runtime {
 	type OnStakerSlash = NominationPools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
-	type AccountMapping = HashedAccountMapping<BlakeTwo256>;
+	type AccountMapping = TruncateAccountMapping<BlakeTwo256>;
 }
 
 
@@ -524,8 +524,8 @@ impl pallet_evm::Config for Runtime {
 	type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
 	type WeightPerGas = WeightPerGas;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
-	type CallOrigin = EnsureAddressHashing;
-	type WithdrawOrigin = EnsureAddressHashing;
+	type CallOrigin = EnsureAddressTruncated;
+	type WithdrawOrigin = EnsureAddressTruncated;
 	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
@@ -536,7 +536,7 @@ impl pallet_evm::Config for Runtime {
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type OnChargeTransaction = EVMConstFeeAdapter<Balances, ()>;
 	type OnCreate = ();
-	type FindAuthor = FindAuthorHashed<Babe>;
+	type FindAuthor = FindAuthorTruncated<Babe>;
 }
 
 parameter_types! {
@@ -547,6 +547,9 @@ impl pallet_ethereum::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type StateRoot = pallet_ethereum::IntermediateStateRoot<Self>;
 	type PostLogContent = PostBlockAndTxnHashes;
+	type Staking = Staking;
+	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
+	type Currency = Balances;
 }
 
 parameter_types! {
@@ -582,10 +585,10 @@ impl pallet_base_fee::Config for Runtime {
 	type DefaultElasticity = DefaultElasticity;
 }
 
-impl pallet_hotfix_sufficients::Config for Runtime {
-	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
-	type WeightInfo = pallet_hotfix_sufficients::weights::SubstrateWeight<Runtime>;
-}
+// impl pallet_hotfix_sufficients::Config for Runtime {
+// 	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
+// 	type WeightInfo = pallet_hotfix_sufficients::weights::SubstrateWeight<Runtime>;
+// }
 
 
 impl pallet_offences::Config for Runtime {
@@ -961,7 +964,7 @@ construct_runtime!(
 		DynamicFee: pallet_dynamic_fee,
 		BaseFee: pallet_base_fee,
 		Offences: pallet_offences,
-		HotfixSufficients: pallet_hotfix_sufficients,
+		// HotfixSufficients: pallet_hotfix_sufficients,
 		Historical: pallet_session_historical::{Pallet},
 		Staking: pallet_staking,
 		Session: pallet_session,
@@ -1281,6 +1284,12 @@ impl_runtime_apis! {
 			let is_transactional = false;
 			let validate = true;
 			let evm_config = config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config());
+
+			log::info!("Call from rpc: from: {} to: {}, value: {}", from, to, value);
+			if to.eq(&H160::default()) {
+
+			}
+
 			<Runtime as pallet_evm::Config>::Runner::call(
 				from,
 				to,

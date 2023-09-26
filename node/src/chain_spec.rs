@@ -18,6 +18,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use qchain_template_runtime::opaque::SessionKeys;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sc_chain_spec::ChainSpecExtension;
+use sp_core::crypto::AccountId32;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -315,6 +316,19 @@ fn testnet_genesis(
 						storage: Default::default(),
 					},
 				);
+
+				map.insert(
+					H160::from_str("0Ebb2E8151b555fEBd4750300ffed34F32b8024d")
+						.expect("internal H160 is valid; qed"),
+					fp_evm::GenesisAccount {
+						balance: U256::from_str("167C2F881BB44D576400000")
+							.expect("internal U256 is valid; qed"),
+						code: Default::default(),
+						nonce: Default::default(),
+						storage: Default::default(),
+					},
+				);
+
 				// Private sale: 190 279 727,96 QDT
 				map.insert(
 					H160::from_str("9921Ea2077972B51950496EFa02e68F0ad2bc4D6")

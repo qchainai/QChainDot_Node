@@ -858,11 +858,11 @@ pub mod pallet {
 			#[pallet::compact] value: BalanceOf<T>,
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
+			log::info!("From bond");
 			let stash = ensure_signed(origin)?;
-
-			let tresuary = T::AccountMapping::into_account_id(stash.clone());
-
-			T::Currency::transfer(&tresuary, &stash, value, ExistenceRequirement::AllowDeath)?;
+			// let stash = T::AccountMapping::into_account_id(stash.clone());
+			// log::info!("Stash: {:?}", stash);
+			// // T::Currency::transfer(&tresuary, &stash, value, ExistenceRequirement::AllowDeath)?;
 
 			if <Bonded<T>>::contains_key(&stash) {
 				return Err(Error::<T>::AlreadyBonded.into())
