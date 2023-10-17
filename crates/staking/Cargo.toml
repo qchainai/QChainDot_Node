@@ -30,6 +30,7 @@ sp-application-crypto  = { workspace = true }
 frame-election-provider-support  = { workspace = true }
 sp-core-hashing = { workspace = true }
 log = "0.4.17"
+pallet-ethereum = { workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking  = { workspace = true }

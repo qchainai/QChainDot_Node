@@ -41,7 +41,7 @@ use sp_staking::{
 	EraIndex, SessionIndex, Stake, StakingInterface,
 };
 use sp_std::prelude::*;
-
+use sp_runtime::AccountId32;
 use crate::{
 	log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, EraPayout, Exposure, ExposureOf,
 	Forcing, IndividualExposure, MaxWinnersOf, Nominations, PositiveImbalanceOf, RewardDestination,
@@ -49,6 +49,7 @@ use crate::{
 };
 
 use super::{pallet::*, STAKING_ID};
+use pallet_ethereum::ValidateInterface;
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.
@@ -1559,6 +1560,17 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	#[cfg(feature = "runtime-benchmarks")]
 	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
 		unimplemented!()
+	}
+}
+
+use frame_support::dispatch::EncodeLike;
+
+impl<T: Config> ValidateInterface for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	fn validate(who: &Self::AccountId) -> DispatchResult {
+		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
+		Self::validate(RawOrigin::Signed(ctrl).into(), ValidatorPrefs::default())
 	}
 }
 

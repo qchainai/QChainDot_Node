@@ -145,6 +145,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"frame-election-provider-support/std",
 	"sp-io/std",
+	"sp-core/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
