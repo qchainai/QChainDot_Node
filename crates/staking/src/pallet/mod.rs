@@ -40,21 +40,60 @@ use sp_staking::{EraIndex, SessionIndex};
 use sp_std::prelude::*;
 
 mod impls;
-
 pub use impls::*;
 
+use crate::IndividualExposure;
 use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, Exposure, Forcing, NegativeImbalanceOf, Nominations, PositiveImbalanceOf,
 	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
 	ValidatorPrefs, address_mapping::AccountMapping,
 };
+use frame_support::traits::FindAuthor;
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 // The speculative number of spans are used as an input of the weight annotation of
 // [`Call::unbond`], as the post dipatch weight may depend on the number of slashing span on the
 // account which is not provided as an input. The value set should be conservative but sensible.
 pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
+
+
+pub trait NominatorsHandle<T: pallet::Config> {
+	fn nominators() -> Vec<(<T as frame_system::Config>::AccountId, Nominations<T>)>;
+
+	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>, &'static str> ;
+
+	fn author() -> Option<sp_core::sr25519::Public>;
+}
+
+impl<T: pallet::Config + pallet_babe::Config> NominatorsHandle<T> for pallet::Pallet<T> {
+	fn nominators() -> Vec<(<T as frame_system::Config>::AccountId, Nominations<T>)> {
+		pallet::Nominators::<T>::iter().collect()
+	}
+
+	fn author() -> Option<sp_core::sr25519::Public> {
+		let digest = <frame_system::Pallet<T>>::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+		if let Some(author_index) = <pallet_babe::Pallet<T>>::find_author(pre_runtime_digests) {
+			let authority_id = <pallet_babe::Pallet<T>>::authorities()[author_index as usize].clone();
+			log::info!("Author: {:?}", authority_id);
+			return Some(authority_id.0.into());
+		}
+		None
+	}
+
+	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>, &'static str> {
+		let current_era = pallet::CurrentEra::<T>::get().ok_or("Failed to get era")?;
+
+		log::info!("Validator: {:?}", validator);
+		let ledger = <pallet::Pallet<T>>::ledger(validator).ok_or("Failed to get ledger")?.stash;
+		log::info!("Ledger: {:?}", ledger);
+		log::info!("Stakers: {:?}", pallet::ErasStakers::<T>::iter_prefix(current_era).collect::<Vec<_>>());
+		let (_, exp) = pallet::ErasStakers::<T>::iter_prefix(current_era).find(|(v, _)| v.eq(&ledger)).ok_or("Failed to get stakers for validator")?;
+
+		Ok(exp)
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {

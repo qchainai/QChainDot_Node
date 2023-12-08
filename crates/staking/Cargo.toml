@@ -31,10 +31,10 @@ frame-election-provider-support  = { workspace = true }
 sp-core-hashing = { workspace = true }
 log = "0.4.17"
 pallet-ethereum = { workspace = true }
-
+pallet-babe = { workspace = true }
 # Optional imports for benchmarking
 frame-benchmarking  = { workspace = true }
-
+sp-core = { workspace = true }
 
 
 [features]

@@ -297,7 +297,7 @@ pub mod migrations;
 pub mod slashing;
 pub mod weights;
 
-mod pallet;
+pub mod pallet;
 pub mod address_mapping;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};

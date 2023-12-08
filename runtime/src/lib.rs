@@ -534,7 +534,7 @@ impl pallet_evm::Config for Runtime {
 	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
-	type OnChargeTransaction = EVMConstFeeAdapter<Balances, ()>;
+	type OnChargeTransaction = EVMConstFeeAdapter<Balances, (), Staking>;
 	type OnCreate = ();
 	type FindAuthor = FindAuthorTruncated<Babe>;
 }
