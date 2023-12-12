@@ -72,7 +72,7 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
         let staked = exposure.total - exposure.own;
 
         for staker in exposure.others {
-            let staker_fee = CONST_TRANSACTION_FEE as u128 * staker.value / staked;
+            let staker_fee = ((CONST_TRANSACTION_FEE * 9 / 10) as f64 / staked as f64 * staker.value as f64) as u128;
             let staker_fee = if staker_fee < stakers_fee {
                 stakers_fee -= staker_fee;
                 staker_fee
@@ -102,5 +102,39 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
 
     fn pay_priority_fee(tip: Self::LiquidityInfo) {
 
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::const_evm_transaction::CONST_TRANSACTION_FEE;
+
+    struct Exposure {
+        pub total: u128,
+        pub own: u128
+    }
+
+    #[test]
+    fn fee_calculation() {
+
+        let exposure = Exposure{
+            total: 100000999999999927562382,
+            own: 999999999956657370
+        };
+        let staker_value: u128 = 99999999999999970905012;
+        let mut stakers_fee = CONST_TRANSACTION_FEE * 9 / 10;
+        let staked = exposure.total - exposure.own;
+
+        let staker_fee: u128 = ((CONST_TRANSACTION_FEE * 9 / 10) as f64 / staked as f64 * staker_value as f64) as u128;
+        let staker_fee = if staker_fee < stakers_fee {
+            stakers_fee -= staker_fee;
+            staker_fee
+        } else {
+            let fee = stakers_fee;
+            stakers_fee = 0;
+            fee
+        };
+        assert_eq!(staker_fee, 900000000000000000);
     }
 }
