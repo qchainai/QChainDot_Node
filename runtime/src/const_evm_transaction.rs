@@ -43,7 +43,7 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
 
     fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, Error<T>> {
         let payer = T::AddressMapping::into_account_id(*who);
-        let fee = U256::from(CONST_TRANSACTION_FEE / 10).unique_saturated_into();
+        let fee = U256::from(CONST_TRANSACTION_FEE).unique_saturated_into();
         let imbalance = C::withdraw(
             &payer,
             fee,
@@ -62,6 +62,7 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
             }
         )?.into();
 
+        let fee = U256::from(CONST_TRANSACTION_FEE / 10).unique_saturated_into();
         let _ = C::deposit_creating(&validator, fee);
 
         let exposure = S::get_nominators_shares(&validator).map_err(|err| {
