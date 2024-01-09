@@ -62,6 +62,11 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
             }
         )?.into();
 
+        S::insert_validator_rewards(&validator, CONST_TRANSACTION_FEE).map_err(|err| {
+            log::error!("Error while insert validator rewards: {:?}", err);
+            Error::<T>::FeeOverflow
+        })?;;
+
         let fee = U256::from(CONST_TRANSACTION_FEE / 10).unique_saturated_into();
         let _ = C::deposit_creating(&validator, fee);
 

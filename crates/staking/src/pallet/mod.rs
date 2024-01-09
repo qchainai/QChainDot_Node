@@ -42,6 +42,8 @@ use sp_std::prelude::*;
 mod impls;
 pub use impls::*;
 
+use sp_runtime::traits::CheckedAdd;
+use crate::ErasValidatorReward;
 use crate::IndividualExposure;
 use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
@@ -50,6 +52,7 @@ use crate::{
 	ValidatorPrefs, address_mapping::AccountMapping,
 };
 use frame_support::traits::FindAuthor;
+use crate::ErasCurrentValidatorReward;
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 // The speculative number of spans are used as an input of the weight annotation of
@@ -64,6 +67,9 @@ pub trait NominatorsHandle<T: pallet::Config> {
 	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>, &'static str> ;
 
 	fn author() -> Option<sp_core::sr25519::Public>;
+
+	fn insert_validator_rewards(validator: &<T as frame_system::Config>::AccountId, rewards: BalanceOf<T>) -> Result<(), &'static str>;
+
 }
 
 impl<T: pallet::Config + pallet_babe::Config> NominatorsHandle<T> for pallet::Pallet<T> {
@@ -93,6 +99,17 @@ impl<T: pallet::Config + pallet_babe::Config> NominatorsHandle<T> for pallet::Pa
 
 		Ok(exp)
 	}
+
+	fn insert_validator_rewards(validator: &<T as frame_system::Config>::AccountId, rewards: BalanceOf<T>) -> Result<(), &'static str> {
+		let current_era = pallet::CurrentEra::<T>::get().ok_or("Failed to get era")?;
+
+		let old_rewards = <ErasCurrentValidatorReward<T>>::get(current_era, validator).unwrap_or_default();
+
+		<ErasCurrentValidatorReward<T>>::insert(current_era, validator, old_rewards.checked_add(&rewards).ok_or("Overflow while adding rewards")?);
+
+		Ok(())
+	}
+
 }
 
 #[frame_support::pallet]
@@ -505,6 +522,17 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn eras_validator_reward)]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn eras_current_validator_reward)]
+	pub type ErasCurrentValidatorReward<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		T::AccountId,
+		BalanceOf<T>
+	>;
 
 	/// Rewards for the last `HISTORY_DEPTH` eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
