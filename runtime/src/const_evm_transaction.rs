@@ -55,6 +55,8 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
                 Error::<T>::BalanceLow
             })?;
 
+        log::info!("payer: {:?} {:?}", payer, who);
+
         let validator = <pallet_staking::Pallet<T>>::author().ok_or_else(
             || {
                 log::error!("Failed to find block author");
@@ -70,26 +72,31 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
         let fee = U256::from(CONST_TRANSACTION_FEE / 10).unique_saturated_into();
         let _ = C::deposit_creating(&validator, fee);
 
+        log::info!("Shares payer: {:?}", S::get_nominators_shares(&payer));
+
         let exposure = S::get_nominators_shares(&validator).map_err(|err| {
             log::error!("Error while get nominators: {}", err);
             Error::<T>::Undefined
         })?;
         let mut stakers_fee = CONST_TRANSACTION_FEE * 9 / 10;
-        let staked = exposure.total - exposure.own;
+        if let Some(exposure) = exposure {
+            let staked = exposure.total - exposure.own;
 
-        for staker in exposure.others {
-            let staker_fee = ((CONST_TRANSACTION_FEE * 9 / 10) as f64 / staked as f64 * staker.value as f64) as u128;
-            let staker_fee = if staker_fee < stakers_fee {
-                stakers_fee -= staker_fee;
-                staker_fee
-            } else {
-                let fee = stakers_fee;
-                stakers_fee = 0;
-                fee
-            };
-            log::info!("Staker: {:?}, fee: {:?}", staker.who, staker_fee);
-            C::deposit_creating(&staker.who, U256::from(staker_fee).unique_saturated_into());
+            for staker in exposure.others {
+                let staker_fee = ((CONST_TRANSACTION_FEE * 9 / 10) as f64 / staked as f64 * staker.value as f64) as u128;
+                let staker_fee = if staker_fee < stakers_fee {
+                    stakers_fee -= staker_fee;
+                    staker_fee
+                } else {
+                    let fee = stakers_fee;
+                    stakers_fee = 0;
+                    fee
+                };
+                log::info!("Staker: {:?}, fee: {:?}", staker.who, staker_fee);
+                C::deposit_creating(&staker.who, U256::from(staker_fee).unique_saturated_into());
+            }
         }
+
         if stakers_fee != 0 {
             C::deposit_creating(&validator,  U256::from(stakers_fee).unique_saturated_into());
         }

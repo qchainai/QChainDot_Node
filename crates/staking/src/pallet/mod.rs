@@ -64,7 +64,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 pub trait NominatorsHandle<T: pallet::Config> {
 	fn nominators() -> Vec<(<T as frame_system::Config>::AccountId, Nominations<T>)>;
 
-	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>, &'static str> ;
+	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Option<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>>, &'static str> ;
 
 	fn author() -> Option<sp_core::sr25519::Public>;
 
@@ -88,14 +88,14 @@ impl<T: pallet::Config + pallet_babe::Config> NominatorsHandle<T> for pallet::Pa
 		None
 	}
 
-	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>, &'static str> {
+	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Option<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>>, &'static str> {
 		let current_era = pallet::CurrentEra::<T>::get().ok_or("Failed to get era")?;
 
 		log::info!("Validator: {:?}", validator);
 		let ledger = <pallet::Pallet<T>>::ledger(validator).ok_or("Failed to get ledger")?.stash;
 		log::info!("Ledger: {:?}", ledger);
 		log::info!("Stakers: {:?}", pallet::ErasStakers::<T>::iter_prefix(current_era).collect::<Vec<_>>());
-		let (_, exp) = pallet::ErasStakers::<T>::iter_prefix(current_era).find(|(v, _)| v.eq(&ledger)).ok_or("Failed to get stakers for validator")?;
+		let exp = pallet::ErasStakers::<T>::iter_prefix(current_era).find(|(v, _)| v.eq(&ledger)).map(|exp| exp.1);
 
 		Ok(exp)
 	}
@@ -928,14 +928,16 @@ pub mod pallet {
 			log::info!("From bond");
 			let stash = ensure_signed(origin)?;
 			// let stash = T::AccountMapping::into_account_id(stash.clone());
-			// log::info!("Stash: {:?}", stash);
+			log::info!("Stash: {:?}", stash);
 			// // T::Currency::transfer(&tresuary, &stash, value, ExistenceRequirement::AllowDeath)?;
 
 			if <Bonded<T>>::contains_key(&stash) {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
 
+			log::info!("Controller: {:?}", controller);
 			let controller = T::Lookup::lookup(controller)?;
+			log::info!("Controller after lookup: {:?}", controller);
 
 			if <Ledger<T>>::contains_key(&controller) {
 				return Err(Error::<T>::AlreadyPaired.into())
