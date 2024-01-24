@@ -80,8 +80,11 @@ impl<T: pallet::Config + pallet_babe::Config> NominatorsHandle<T> for pallet::Pa
 	fn author() -> Option<sp_core::sr25519::Public> {
 		let digest = <frame_system::Pallet<T>>::digest();
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+		log::info!("Digest: {:?} {:?}", digest, pre_runtime_digests);
 		if let Some(author_index) = <pallet_babe::Pallet<T>>::find_author(pre_runtime_digests) {
-			let authority_id = <pallet_babe::Pallet<T>>::authorities()[author_index as usize].clone();
+			let authorities = <pallet_babe::Pallet<T>>::authorities();
+			log::info!("Authorities: {:?}", authorities);
+			let authority_id = authorities[author_index as usize].clone();
 			log::info!("Author: {:?}", authority_id);
 			return Some(authority_id.0.into());
 		}
