@@ -19,7 +19,7 @@ const CONST_TRANSACTION_FEE: u128 = 1000000000000000000;
 
 impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
     where
-        T: Config + pallet_staking::Config<CurrencyBalance = u128> + pallet_babe::Config,
+        T: Config + pallet_staking::Config<CurrencyBalance = u128> + pallet_babe::Config + pallet_session::Config,
         C: Currency<<T as frame_system::Config>::AccountId, Balance = u128>,
         S: StakingInterface<
             AccountId = <T as frame_system::Config>::AccountId,
@@ -36,7 +36,8 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
         >,
         OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
         U256: UniqueSaturatedInto<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance>,
-        <T as frame_system::Config>::AccountId: From<sp_core::sr25519::Public>
+        <T as frame_system::Config>::AccountId: From<sp_core::sr25519::Public>,
+        <T as frame_system::Config>::AccountId: From<<T as pallet_session::Config>::ValidatorId>
 {
     // Kept type as Option to satisfy bound of Default
     type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;

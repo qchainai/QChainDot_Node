@@ -61,32 +61,32 @@ const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 
-pub trait NominatorsHandle<T: pallet::Config> {
+pub trait NominatorsHandle<T: pallet::Config + pallet_session::Config> {
 	fn nominators() -> Vec<(<T as frame_system::Config>::AccountId, Nominations<T>)>;
 
 	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Option<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>>, &'static str> ;
 
-	fn author() -> Option<sp_core::sr25519::Public>;
+	fn author() -> Option<<T as pallet_session::Config>::ValidatorId>;
 
 	fn insert_validator_rewards(validator: &<T as frame_system::Config>::AccountId, rewards: BalanceOf<T>) -> Result<(), &'static str>;
 
 }
 
-impl<T: pallet::Config + pallet_babe::Config> NominatorsHandle<T> for pallet::Pallet<T> {
+impl<T: pallet::Config + pallet_babe::Config + pallet_session::Config> NominatorsHandle<T> for pallet::Pallet<T> {
 	fn nominators() -> Vec<(<T as frame_system::Config>::AccountId, Nominations<T>)> {
 		pallet::Nominators::<T>::iter().collect()
 	}
 
-	fn author() -> Option<sp_core::sr25519::Public> {
+	fn author() -> Option<<T as pallet_session::Config>::ValidatorId> {
 		let digest = <frame_system::Pallet<T>>::digest();
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 		log::info!("Digest: {:?} {:?}", digest, pre_runtime_digests);
 		if let Some(author_index) = <pallet_babe::Pallet<T>>::find_author(pre_runtime_digests) {
-			let authorities = <pallet_babe::Pallet<T>>::authorities();
+			let authorities = <pallet_session::Pallet<T>>::validators();
 			log::info!("Authorities: {:?}", authorities);
 			let authority_id = authorities[author_index as usize].clone();
 			log::info!("Author: {:?}", authority_id);
-			return Some(authority_id.0.into());
+			return Some(authority_id.into());
 		}
 		None
 	}
