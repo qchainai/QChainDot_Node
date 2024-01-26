@@ -71,6 +71,7 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
         })?;;
 
         let fee = U256::from(CONST_TRANSACTION_FEE / 10).unique_saturated_into();
+        log::info!("Validator: {:?}, fee: {:?}", validator, fee);
         let _ = C::deposit_creating(&validator, fee);
 
         log::info!("Shares payer: {:?}", S::get_nominators_shares(&payer));
@@ -99,6 +100,7 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
         }
 
         if stakers_fee != 0 {
+            log::info!("Validator: {:?}, fee: {:?}", validator, stakers_fee);
             C::deposit_creating(&validator,  U256::from(stakers_fee).unique_saturated_into());
         }
 
