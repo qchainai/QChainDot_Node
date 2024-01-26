@@ -66,27 +66,36 @@ pub trait NominatorsHandle<T: pallet::Config + pallet_session::Config> {
 
 	fn get_nominators_shares(validator: &<T as frame_system::Config>::AccountId) -> Result<Option<Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>>, &'static str> ;
 
-	fn author() -> Option<<T as pallet_session::Config>::ValidatorId>;
+	fn author() -> Option<<T as frame_system::Config>::AccountId>;
 
 	fn insert_validator_rewards(validator: &<T as frame_system::Config>::AccountId, rewards: BalanceOf<T>) -> Result<(), &'static str>;
 
 }
 
-impl<T: pallet::Config + pallet_babe::Config + pallet_session::Config> NominatorsHandle<T> for pallet::Pallet<T> {
+impl<T: pallet::Config + pallet_babe::Config + pallet_session::Config> NominatorsHandle<T> for pallet::Pallet<T>
+	where <T as frame_system::Config>::AccountId: From<<T as pallet_session::Config>::ValidatorId> {
 	fn nominators() -> Vec<(<T as frame_system::Config>::AccountId, Nominations<T>)> {
 		pallet::Nominators::<T>::iter().collect()
 	}
 
-	fn author() -> Option<<T as pallet_session::Config>::ValidatorId> {
+	fn author() -> Option<<T as frame_system::Config>::AccountId> {
 		let digest = <frame_system::Pallet<T>>::digest();
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 		log::info!("Digest: {:?} {:?}", digest, pre_runtime_digests);
 		if let Some(author_index) = <pallet_babe::Pallet<T>>::find_author(pre_runtime_digests) {
+			let a = <pallet_babe::Pallet<T>>::authorities();
+
+			log::info!("Authorities: {:?}", a);
 			let authorities = <pallet_session::Pallet<T>>::validators();
-			log::info!("Authorities: {:?}", authorities);
+			log::info!("Validators: {:?}", authorities);
 			let authority_id = authorities[author_index as usize].clone();
-			log::info!("Author: {:?}", authority_id);
-			return Some(authority_id.into());
+			let validator_id = authority_id.clone().into();
+			for keys in pallet::Bonded::<T>::iter() {
+				log::info!("Keys: {:?}", keys);
+				if keys.0.eq(&validator_id) {
+					return Some(keys.1);
+				}
+			}
 		}
 		None
 	}
@@ -114,6 +123,8 @@ impl<T: pallet::Config + pallet_babe::Config + pallet_session::Config> Nominator
 	}
 
 }
+
+
 
 #[frame_support::pallet]
 pub mod pallet {
