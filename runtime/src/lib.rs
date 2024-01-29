@@ -55,7 +55,7 @@ use fp_rpc::TransactionStatus;
 use frame_support::traits::{EitherOfDiverse, U128CurrencyToVote};
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
-	Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, HashedAddressMapping, Runner,
+	Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, HashedAddressMapping, Runner, AddressMapping,
 };
 
 // A few exports that help ease life for downstream crates.
@@ -509,9 +509,50 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorHashed<F> {
 	}
 }
 
+use pallet_staking::NominatorsHandle;
+
+pub struct FindAuthorExtended<F, T: pallet_staking::Config + pallet_babe::Config + pallet_session::Config>(PhantomData<(F, T)>);
+impl<T, F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorExtended<F,T> where
+	T: pallet_staking::Config + pallet_babe::Config + pallet_session::Config + frame_system::Config<AccountId = AccountId32>,
+	AccountId32: From<<T as pallet_session::Config>::ValidatorId> {
+	fn find_author<'a, I>(digests: I) -> Option<H160>
+		where
+			I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+	{
+		if let Some(author_index) = F::find_author(digests) {
+			let authority_id = Babe::authorities()[author_index as usize].clone();
+
+			let authorities = <pallet_session::Pallet<T>>::validators();
+			log::info!("Validators: {:?}", authorities);
+			let authority_id = authorities[author_index as usize].clone();
+			let validator_id = authority_id.clone().into();
+
+			if let Some(key) = pallet_staking::Bonded::<T>::iter().find(|key| key.0.eq(&validator_id)) {
+				let key = key.1;
+				return Some(H160::from_slice(&<AccountId32 as AsRef<[u8;32]>>::as_ref(&key)[12..]));
+			}
+		}
+		None
+	}
+}
+
 impl pallet_evm_chain_id::Config for Runtime {}
 
 const BLOCK_GAS_LIMIT: u64 = 75_000_000;
+
+use sp_core::crypto::AccountId32;
+use sp_core::Hasher;
+
+pub struct ExtendedAddressMapping;
+
+impl AddressMapping<AccountId32> for ExtendedAddressMapping {
+	fn into_account_id(address: H160) -> AccountId32 {
+		let mut data = [0u8; 32];
+		data[12..32].copy_from_slice(&address[..]);
+
+		AccountId32::from(data)
+	}
+}
 
 parameter_types! {
 	pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
@@ -526,7 +567,7 @@ impl pallet_evm::Config for Runtime {
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = EnsureAddressTruncated;
 	type WithdrawOrigin = EnsureAddressTruncated;
-	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
+	type AddressMapping = ExtendedAddressMapping;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
 	type PrecompilesType = FrontierPrecompiles<Self>;
@@ -536,7 +577,7 @@ impl pallet_evm::Config for Runtime {
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type OnChargeTransaction = EVMConstFeeAdapter<Balances, (), Staking>;
 	type OnCreate = ();
-	type FindAuthor = FindAuthorTruncated<Babe>;
+	type FindAuthor = FindAuthorExtended<Babe, Runtime>;
 }
 
 parameter_types! {

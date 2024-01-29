@@ -83,9 +83,6 @@ impl<T: pallet::Config + pallet_babe::Config + pallet_session::Config> Nominator
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 		log::info!("Digest: {:?} {:?}", digest, pre_runtime_digests);
 		if let Some(author_index) = <pallet_babe::Pallet<T>>::find_author(pre_runtime_digests) {
-			let a = <pallet_babe::Pallet<T>>::authorities();
-
-			log::info!("Authorities: {:?}", a);
 			let authorities = <pallet_session::Pallet<T>>::validators();
 			log::info!("Validators: {:?}", authorities);
 			let authority_id = authorities[author_index as usize].clone();
