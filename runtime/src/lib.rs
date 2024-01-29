@@ -590,7 +590,7 @@ impl pallet_ethereum::Config for Runtime {
 	type PostLogContent = PostBlockAndTxnHashes;
 	type Staking = Staking;
 	type SetKeys = Session;
-	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
+	type AddressMapping = EnsureAddressTruncated;
 	type Currency = Balances;
 }
 
