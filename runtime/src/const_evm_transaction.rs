@@ -74,8 +74,6 @@ impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
         log::info!("Validator: {:?}, fee: {:?}", validator, fee);
         let _ = C::deposit_creating(&validator, fee);
 
-        log::info!("Shares payer: {:?}", S::get_nominators_shares(&payer));
-
         let exposure = S::get_nominators_shares(&validator).map_err(|err| {
             log::error!("Error while get nominators: {}", err);
             Error::<T>::Undefined
