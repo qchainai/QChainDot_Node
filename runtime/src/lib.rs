@@ -1090,7 +1090,6 @@ pub type Executive = frame_executive::Executive<
 >;
 
 mod account_migration {
-	use std::str::FromStr;
 	use frame_support::traits::{ExistenceRequirement, OnRuntimeUpgrade, Currency};
 	use super::*;
 
@@ -1098,13 +1097,16 @@ mod account_migration {
 	impl OnRuntimeUpgrade for Upgrade {
 		fn on_runtime_upgrade() -> Weight {
 			let accounts = vec![
-				(AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000"), AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")),
-				(AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000"), AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")),
-				(AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000"), AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")),
-				(AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000"), AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")),
+				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
+				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
+				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
+				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
+				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
 			];
 
-			<Balances as Currency<_>>::transfer(&from, &to, Balances::total_balance(&from), ExistenceRequirement::KeepAlive);
+			for account in accounts {
+				<Balances as Currency<_>>::transfer(&account.0, &account.1, Balances::total_balance(&account.0), ExistenceRequirement::KeepAlive);
+			}
 			Weight::zero()
 		}
 	}
