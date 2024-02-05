@@ -590,7 +590,7 @@ impl pallet_ethereum::Config for Runtime {
 	type PostLogContent = PostBlockAndTxnHashes;
 	type Staking = Staking;
 	type SetKeys = Session;
-	type AddressMapping = EnsureAddressTruncated;
+	type AddressMapping = ExtendedAddressMapping;
 	type Currency = Balances;
 }
 
@@ -1086,12 +1086,34 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	account_migration::Upgrade
 >;
+
+mod account_migration {
+	use std::str::FromStr;
+	use frame_support::traits::{ExistenceRequirement, OnRuntimeUpgrade, Currency};
+	use super::*;
+
+	pub struct Upgrade;
+	impl OnRuntimeUpgrade for Upgrade {
+		fn on_runtime_upgrade() -> Weight {
+			let accounts = vec![
+				(AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000"), AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")),
+				(AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000"), AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")),
+				(AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000"), AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")),
+				(AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000"), AccountId32::from_str("0x0000000000000000000000000000000000000000000000000000000000000000")),
+			];
+
+			<Balances as Currency<_>>::transfer(&from, &to, Balances::total_balance(&from), ExistenceRequirement::KeepAlive);
+			Weight::zero()
+		}
+	}
+}
 
 impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	type SignedInfo = H160;
 
-	fn is_self_contained(&self) -> bool {
+	fn is_self_contained<'a>(&'a self) -> bool {
 		match self {
 			RuntimeCall::Ethereum(call) => call.is_self_contained(),
 			_ => false,
