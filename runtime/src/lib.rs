@@ -1096,16 +1096,26 @@ mod account_migration {
 	pub struct Upgrade;
 	impl OnRuntimeUpgrade for Upgrade {
 		fn on_runtime_upgrade() -> Weight {
+			let old_version = frame_support::traits::StorageVersion::get::<frame_system::Pallet<Runtime>>();
+			log::info!("Old storage version: {:?}", old_version);
+			frame_support::traits::StorageVersion::new(1).put::<frame_system::Pallet<Runtime>>();
+			let new_version = frame_support::traits::StorageVersion::get::<frame_system::Pallet<Runtime>>();
+			log::info!("New storage version: {:?}", new_version);
 			let accounts = vec![
-				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
-				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
-				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
-				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
-				(AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), AccountId32::from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])),
+				(AccountId32::from(hex_literal::hex!["90b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22"]),
+				 AccountId32::from(hex_literal::hex!["306721211d5404bd9da88e0204360a1a9ab8b87c66c1bc2fcdd37f3c2222cc20"])),
 			];
 
 			for account in accounts {
-				<Balances as Currency<_>>::transfer(&account.0, &account.1, Balances::total_balance(&account.0), ExistenceRequirement::KeepAlive);
+				log::info!("Migrated from: {:?} to: {:?}", &account.0, &account.1);
+				log::info!("Total balance before:");
+				log::info!("Account: {:?}, Balance: {:?}", account.0, Balances::total_balance(&account.0));
+				log::info!("Account: {:?}, Balance: {:?}", account.1, Balances::total_balance(&account.1));
+				if let Err(err) = <Balances as Currency<_>>::transfer(&account.0, &account.1, Balances::total_balance(&account.0), ExistenceRequirement::KeepAlive) {
+					log::error!("Error while migration transfer: {:?}", err);
+				}
+				log::info!("Account: {:?}, Balance: {:?}", account.0, Balances::total_balance(&account.0));
+				log::info!("Account: {:?}, Balance: {:?}", account.1, Balances::total_balance(&account.1));
 			}
 			Weight::zero()
 		}
