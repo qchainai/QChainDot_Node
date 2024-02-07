@@ -1091,6 +1091,7 @@ pub type Executive = frame_executive::Executive<
 
 mod account_migration {
 	use frame_support::traits::{ExistenceRequirement, OnRuntimeUpgrade, Currency};
+	use sp_staking::StakingInterface;
 	use super::*;
 
 	pub struct Upgrade;
@@ -1107,11 +1108,15 @@ mod account_migration {
 			];
 
 			for account in accounts {
+
+				<Staking as StakingInterface>::chill(&account.0);
+				<Staking as StakingInterface>::force_unstake(account.0.clone());
+
 				log::info!("Migrated from: {:?} to: {:?}", &account.0, &account.1);
 				log::info!("Total balance before:");
 				log::info!("Account: {:?}, Balance: {:?}", account.0, Balances::total_balance(&account.0));
 				log::info!("Account: {:?}, Balance: {:?}", account.1, Balances::total_balance(&account.1));
-				if let Err(err) = <Balances as Currency<_>>::transfer(&account.0, &account.1, Balances::total_balance(&account.0), ExistenceRequirement::KeepAlive) {
+				if let Err(err) = <Balances as Currency<_>>::transfer(&account.0, &account.1, Balances::total_balance(&account.0), ExistenceRequirement::AllowDeath) {
 					log::error!("Error while migration transfer: {:?}", err);
 				}
 				log::info!("Account: {:?}, Balance: {:?}", account.0, Balances::total_balance(&account.0));
