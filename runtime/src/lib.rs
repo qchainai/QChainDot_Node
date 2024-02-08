@@ -1091,6 +1091,7 @@ pub type Executive = frame_executive::Executive<
 
 mod account_migration {
 	use frame_support::traits::{ExistenceRequirement, OnRuntimeUpgrade, Currency};
+	use frame_system::Account;
 	use sp_staking::StakingInterface;
 	use super::*;
 
@@ -1109,13 +1110,23 @@ mod account_migration {
 
 			for account in accounts {
 
-				<Staking as StakingInterface>::chill(&account.0);
-				<Staking as StakingInterface>::force_unstake(account.0.clone());
+				if let Err(err) = <Staking as StakingInterface>::chill(&account.0)  {
+					log::error!("Error while chill: {:?}", err);
+				}
+				if let Err(err) = <Staking as StakingInterface>::force_unstake(account.0.clone()) {
+					log::error!("Error force unstake: {:?}", err);
+				}
 
 				log::info!("Migrated from: {:?} to: {:?}", &account.0, &account.1);
 				log::info!("Total balance before:");
 				log::info!("Account: {:?}, Balance: {:?}", account.0, Balances::total_balance(&account.0));
 				log::info!("Account: {:?}, Balance: {:?}", account.1, Balances::total_balance(&account.1));
+
+				let can_provided = System::can_dec_provider(&account.0);
+				let system_account = Account::<Runtime>::get(&account.0);
+
+				log::info!("Account: {:?}, can provided: {}", system_account, can_provided);
+
 				if let Err(err) = <Balances as Currency<_>>::transfer(&account.0, &account.1, Balances::total_balance(&account.0), ExistenceRequirement::AllowDeath) {
 					log::error!("Error while migration transfer: {:?}", err);
 				}
