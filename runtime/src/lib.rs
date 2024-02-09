@@ -424,8 +424,11 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = ();
 }
 
+
+pub const MIN_BALANCE: u128 = 500;
+
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 500;
+	pub const ExistentialDeposit: u128 = MIN_BALANCE;
 	// For weight estimation, we assume that the most locks on an individual account will be 50.
 	// This number may need to be adjusted in the future if this assumption no longer holds true.
 	pub const MaxLocks: u32 = 50;
@@ -1125,9 +1128,15 @@ mod account_migration {
 				let can_provided = System::can_dec_provider(&account.0);
 				let system_account = Account::<Runtime>::get(&account.0);
 
-				log::info!("Account: {:?}, can provided: {}", system_account, can_provided);
+				log::info!("Account provider {}, consumer {}, can provided: {}", system_account.providers, system_account.consumers, can_provided);
 
-				if let Err(err) = <Balances as Currency<_>>::transfer(&account.0, &account.1, Balances::total_balance(&account.0), ExistenceRequirement::AllowDeath) {
+				let transferred_balance = if can_provided {
+					Balances::total_balance(&account.0)
+				} else {
+					Balances::total_balance(&account.0) - MIN_BALANCE
+				};
+
+				if let Err(err) = <Balances as Currency<_>>::transfer(&account.0, &account.1, transferred_balance, ExistenceRequirement::AllowDeath) {
 					log::error!("Error while migration transfer: {:?}", err);
 				}
 				log::info!("Account: {:?}, Balance: {:?}", account.0, Balances::total_balance(&account.0));
