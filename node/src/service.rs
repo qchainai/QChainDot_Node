@@ -8,13 +8,13 @@ use futures::{channel::mpsc, prelude::*};
 use pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi;
 // Substrate
 use prometheus_endpoint::Registry;
-use sc_client_api::{BlockBackend, StateBackendFor};
+use sc_client_api::{Backend, BlockBackend, BlockImportOperation, StateBackendFor};
 use sc_consensus::BasicQueue;
 use sc_executor::{NativeElseWasmExecutor, NativeExecutionDispatch};
 use sc_network_common::service::NetworkEventStream;
 use sc_network_common::protocol::event::Event;
 use sc_network_common::sync::warp::WarpSyncParams;
-use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
+use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager, GenesisBlockBuilder, new_db_backend, BuildGenesisBlock, resolve_state_version_from_wasm};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker};
 use sp_api::{ConstructRuntimeApi, TransactionFor};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
@@ -97,6 +97,43 @@ where
 		config.max_runtime_instances,
 		config.runtime_cache_size,
 	);
+	{
+		use sp_api::BlockT;
+		use sp_api::HeaderT;
+		let backend = new_db_backend::<Block>(config.db_config())?;
+
+		{
+			let genesis_block_builder = GenesisBlockBuilder::new(
+				config.chain_spec.as_storage_builder(),
+				!config.no_genesis(),
+				backend.clone(),
+				executor.clone(),
+			)?;
+
+			let genesis_storage = config.chain_spec.as_storage_builder()
+				.build_storage()
+				.map_err(sp_blockchain::Error::Storage)?;
+
+			let genesis_state_version =
+				resolve_state_version_from_wasm(&genesis_storage, &executor)?;
+			let mut op = backend.begin_operation()?;
+			let state_root =
+				op.set_genesis_state(genesis_storage, !config.no_genesis(), genesis_state_version).unwrap();
+
+			log::info!("State root: {:?}, state version: {:?}", state_root, genesis_state_version);
+		}
+
+		let genesis_block_builder = GenesisBlockBuilder::new(
+			config.chain_spec.as_storage_builder(),
+			!config.no_genesis(),
+			backend.clone(),
+			executor.clone(),
+		)?;
+		let genesis_block = genesis_block_builder.build_genesis_block().unwrap().0;
+
+		log::info!("Genesis block: {:?}", genesis_block);
+		log::info!("Gen block: {:?} {:?}", genesis_block.header().state_root(), genesis_block.header().hash());
+	}
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
