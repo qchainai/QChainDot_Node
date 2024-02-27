@@ -15,7 +15,7 @@ type NegativeImbalanceOf<C, T> =
 
 pub struct EVMConstFeeAdapter<C, OU, S>(sp_std::marker::PhantomData<(C, OU, S)>);
 
-const CONST_TRANSACTION_FEE: u128 = 1000000000000000000;
+const CONST_TRANSACTION_FEE: u128 = 10000000000000000000;
 
 impl<T, C, OU, S> OnChargeEVMTransaction<T> for EVMConstFeeAdapter<C, OU, S>
     where
