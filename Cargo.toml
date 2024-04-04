@@ -193,6 +193,3 @@ pallet-evm-test-vector-support = { version = "1.0.0-dev",  path = "../QChainDot_
 # Frontier Template
 qchain-template-runtime = { path = "runtime", default-features = false  }
 
-[patch.crates-io]
-jsonrpsee = { path = "../jsonrpsee/jsonrpsee" }
-hyper = { path = "../hyper" }
